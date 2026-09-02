@@ -9,8 +9,7 @@ import {
 // API CONFIG
 // =====================================================
 
-const API_BASE_URL =
-  'http://161.248.163.13:3000/api/v1';
+const API_BASE_URL = 'https://para-territories-functionality-premises.trycloudflare.com/api/v1';
 
 const REQUEST_TIMEOUT = 15000;
 
