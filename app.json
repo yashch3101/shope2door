@@ -34,6 +34,14 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -56,11 +64,19 @@
           "microphonePermission": "Allow Shope2Door to use your microphone for voice search.",
           "speechRecognitionPermission": "Allow Shope2Door to convert your voice into product search text."
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "587b5dfc-85c7-4497-9c5d-ef3c0ac271bd"
+      }
+    },
+    "owner": "yash_ch_29"
   }
 }
