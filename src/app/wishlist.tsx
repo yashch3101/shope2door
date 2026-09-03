@@ -45,6 +45,8 @@ import {
 
 const { width } = Dimensions.get('window');
 
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+
 // =====================================================
 // SCREEN
 // =====================================================
@@ -418,7 +420,8 @@ export default function WishlistScreen() {
           {image ? (
             <Image
               source={{
-                uri: image,
+                uri: `${API_BASE_URL}/${image}?ngrok-skip-browser-warning=true`,
+                headers: { 'ngrok-skip-browser-warning': 'true' }
               }}
               style={
                 styles.productImage

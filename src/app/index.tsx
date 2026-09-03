@@ -12,11 +12,12 @@ import {
   LogBox,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { SvgUri } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 import { MotiView, MotiText, AnimatePresence } from 'moti';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -119,6 +120,7 @@ type ProductItem = {
   price: string;
   discount: string;
   type: string;
+  image?: string;
 };
 
 function isValidIconUrl(icon?: string | null): boolean {
@@ -128,6 +130,8 @@ function isValidIconUrl(icon?: string | null): boolean {
 
   return /^https?:\/\/.+/i.test(icon.trim());
 }
+
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
 const mapProductToCard = (
   product: Product,
@@ -153,6 +157,9 @@ const mapProductToCard = (
       product.stock > 0
         ? 'Add to Cart'
         : 'Out of Stock',
+    image: product.images && product.images.length > 0 
+         ? `${API_BASE_URL}/${product.images[0]}` 
+         : undefined,
   };
 };
 
@@ -179,6 +186,7 @@ const ProductCard = ({
 }) => {
 
   const router = useRouter();
+  console.log("CHECK IMAGE URL ->", product.name, " : ", product.image);
 
   return (
     <MotiView 
@@ -228,7 +236,17 @@ const ProductCard = ({
           });
         }}
       >
-        <Ionicons name="image-outline" size={36} color="#D1D5DB" />
+        {product.image ? (
+          <Image
+            source={{ 
+              uri: `${product.image}?ngrok-skip-browser-warning=true` 
+            }}
+            style={{ width: '100%', height: '100%', borderRadius: 12 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Ionicons name="image-outline" size={36} color="#D1D5DB" />
+        )}
       </TouchableOpacity>
 
       <Text style={styles.productWeight}>{product.weight}</Text>
@@ -1431,17 +1449,13 @@ const AnimatedSearchPlaceholder = () => {
                     }
                   >
                     {isValidIconUrl(cat.icon) ? (
-                      <SvgUri
+                      <NgrokSvg
                         uri={cat.icon!.trim()}
                         width={40}
                         height={40}
                       />
                     ) : (
-                      <Ionicons
-                        name="grid-outline"
-                        size={40}
-                        color="#EAB308"
-                      />
+                      <Ionicons name="grid-outline" size={40} color="#EAB308" />
                     )}
                   </TouchableOpacity>
                   <Text style={styles.categoryName} numberOfLines={2}>{cat.name}</Text>
@@ -2000,6 +2014,19 @@ const AnimatedSearchPlaceholder = () => {
     </View>
   );
 }
+
+const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
+  const [xml, setXml] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
+      .then(res => res.text())
+      .then(text => setXml(text))
+      .catch(err => console.log('SVG Fetch Error:', err));
+  }, [uri]);
+
+  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+};
 
 const styles = StyleSheet.create({
   splashContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#D5EDCC', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },

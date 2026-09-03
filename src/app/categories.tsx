@@ -24,7 +24,7 @@ import {
 
 import { MotiView } from 'moti';
 
-import { SvgUri } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 
 function isValidIconUrl(icon?: string | null): boolean {
   if (!icon) {
@@ -344,17 +344,13 @@ export default function CategoriesScreen() {
                     }
                   >
                     {isValidIconUrl(category.icon) ? (
-                      <SvgUri
+                      <NgrokSvg
                         uri={category.icon!.trim()}
                         width={40}
                         height={40}
                       />
                     ) : (
-                      <Ionicons
-                        name="grid-outline"
-                        size={40}
-                        color="#EAB308"
-                      />
+                      <Ionicons name="grid-outline" size={40} color="#EAB308" />
                     )}
                   </TouchableOpacity>
 
@@ -438,6 +434,19 @@ export default function CategoriesScreen() {
     </SafeAreaView>
   );
 }
+
+const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
+  const [xml, setXml] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
+      .then(res => res.text())
+      .then(text => setXml(text))
+      .catch(err => console.log('SVG Fetch Error:', err));
+  }, [uri]);
+
+  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+};
 
 // =======================================================
 // STYLES

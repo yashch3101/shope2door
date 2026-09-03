@@ -44,6 +44,8 @@ const { width } = Dimensions.get('window');
 export default function CartScreen() {
   const router = useRouter();
 
+  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+
   // =====================================================
   // CART STATE
   // =====================================================
@@ -681,11 +683,10 @@ export default function CartScreen() {
                           {image ? (
                             <Image
                               source={{
-                                uri: image,
+                                uri: `${API_BASE_URL}/${image}?ngrok-skip-browser-warning=true`,
+                                headers: { 'ngrok-skip-browser-warning': 'true' }
                               }}
-                              style={
-                                styles.itemImage
-                              }
+                              style={styles.itemImage}
                               resizeMode="cover"
                             />
                           ) : (

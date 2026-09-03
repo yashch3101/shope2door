@@ -13,6 +13,7 @@ import {
   ScrollView,
   FlatList,
   Alert,
+  Image,
 } from 'react-native';
 
 import { addToCart } from '../services/cart.api';
@@ -31,7 +32,7 @@ import {
   MaterialIcons,
 } from '@expo/vector-icons';
 
-import { SvgUri } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 
 import { MotiView } from 'moti';
 
@@ -61,6 +62,8 @@ function isValidIconUrl(icon?: string | null): boolean {
 
 export default function CategoryDetailsScreen() {
   const router = useRouter();
+
+  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
   const params = useLocalSearchParams();
 
@@ -580,23 +583,15 @@ export default function CategoryDetailsScreen() {
                         />
                       )}
 
-                      <View
-                        style={
-                          styles.iconCircle
-                        }
-                      >
+                      <View style={styles.iconCircle}>
                         {isValidIconUrl(category.icon) ? (
-                          <SvgUri
-                            uri={category.icon!.trim()}
+                          <NgrokSvg
+                            uri={`${API_BASE_URL}/${category.icon!.trim()}?ngrok-skip-browser-warning=true`}
                             width={32}
                             height={32}
                           />
                         ) : (
-                          <Ionicons
-                            name="grid-outline"
-                            size={32}
-                            color="#EAB308"
-                          />
+                          <Ionicons name="grid-outline" size={32} color="#EAB308" />
                         )}
                       </View>
 
@@ -739,24 +734,26 @@ export default function CategoryDetailsScreen() {
 
                       <TouchableOpacity
                         activeOpacity={0.9}
-                        style={
-                          styles.imagePlaceholder
-                        }
+                        style={styles.imagePlaceholder}
                         onPress={() => {
                           router.push({
-                            pathname:
-                              '/product-details',
-                            params: {
-                              id: item.id,
-                            },
+                            pathname: '/product-details',
+                            params: { id: item.id },
                           });
                         }}
                       >
-                        <Ionicons
-                          name="image-outline"
-                          size={40}
-                          color="#D1D5DB"
-                        />
+                        {item.images && item.images.length > 0 ? (
+                          <Image
+                            source={{ 
+                              uri: `${API_BASE_URL}/${item.images[0]}?ngrok-skip-browser-warning=true`,
+                              headers: { 'ngrok-skip-browser-warning': 'true' }
+                            }}
+                            style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Ionicons name="image-outline" size={40} color="#D1D5DB" />
+                        )}
                       </TouchableOpacity>
 
                       {/* =================================
@@ -896,6 +893,19 @@ export default function CategoryDetailsScreen() {
     </SafeAreaView>
   );
 }
+
+const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
+  const [xml, setXml] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
+      .then(res => res.text())
+      .then(text => setXml(text))
+      .catch(err => console.log('SVG Fetch Error:', err));
+  }, [uri]);
+
+  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+};
 
 // =======================================================
 // STYLES

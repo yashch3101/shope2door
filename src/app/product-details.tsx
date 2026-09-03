@@ -34,6 +34,8 @@ import type {
 
 const { width, height } = Dimensions.get('window');
 
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
@@ -439,7 +441,10 @@ export default function ProductDetailsScreen() {
             <View style={styles.imagePlaceholder}>
               {item ? (
                 <Image
-                  source={{ uri: item }}
+                  source={{ 
+                    uri: `${API_BASE_URL}/${item}?ngrok-skip-browser-warning=true`,
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                  }}
                   style={styles.productImage}
                   resizeMode="contain"
                 />
@@ -621,7 +626,10 @@ export default function ProductDetailsScreen() {
                   <View style={styles.cardImagePlaceholder}>
                     {item.images?.[0] ? (
                       <Image
-                        source={{ uri: item.images[0] }}
+                        source={{ 
+                          uri: `${API_BASE_URL}/${item.images[0]}?ngrok-skip-browser-warning=true`,
+                          headers: { 'ngrok-skip-browser-warning': 'true' }
+                        }}
                         style={styles.similarProductImage}
                         resizeMode="contain"
                       />
