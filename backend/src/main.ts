@@ -38,6 +38,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   // =====================================================
+  // SERVE STATIC FILES (IMAGES)
+  // =====================================================
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads',
+  });
+
+  // =====================================================
   // SECURITY HEADERS
   // =====================================================
 
