@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup Java
+      - name: Setup Java (Required for Android Build)
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -29,10 +29,10 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: Build APK on GitHub Server
+      - name: Build APK locally on GitHub Server
         run: eas build --platform android --profile preview --non-interactive --local
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
