@@ -5,6 +5,7 @@ import {
 import { NestFactory } from '@nestjs/core';
 
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as express from 'express';
 import { join } from 'path';
 
 import helmet from 'helmet';
@@ -27,9 +28,7 @@ async function bootstrap() {
   // =====================================================
   // SERVE STATIC FILES (IMAGES)
   // =====================================================
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
+  app.use('/api/v1/uploads', express.static(join(__dirname, '..', 'uploads')));
 
   // =====================================================
   // GLOBAL API PREFIX
