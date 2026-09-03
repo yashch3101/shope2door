@@ -4,6 +4,9 @@ import {
 
 import { NestFactory } from '@nestjs/core';
 
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
@@ -11,7 +14,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(
+  const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     {
       // IMPORTANT:
@@ -20,6 +23,13 @@ async function bootstrap() {
       rawBody: true,
     },
   );
+
+  // =====================================================
+  // SERVE STATIC FILES (IMAGES)
+  // =====================================================
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // =====================================================
   // GLOBAL API PREFIX
