@@ -968,6 +968,7 @@ const handleVerifyOtp = async () => {
           page: 1,
           limit: 20,
         });
+        console.log('PRODUCTS FETCHED:', response);
 
         if (
           response.success &&

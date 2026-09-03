@@ -9,7 +9,7 @@ import {
 // API CONFIG
 // =====================================================
 
-const API_BASE_URL = 'https://para-territories-functionality-premises.trycloudflare.com/api/v1';
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
 const REQUEST_TIMEOUT = 15000;
 
@@ -204,6 +204,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
             headers: {
               Accept: 'application/json',
+              'ngrok-skip-browser-warning': 'true',
               Authorization:
                 `Bearer ${refreshToken}`,
             },
@@ -328,10 +329,6 @@ export async function apiRequest<T>(
     token,
   } = options;
 
-  // ===================================================
-  // FIRST REQUEST
-  // ===================================================
-
   let response: Response;
 
   try {
@@ -339,21 +336,18 @@ export async function apiRequest<T>(
       `${API_BASE_URL}${endpoint}`,
       {
         method,
-
         headers: {
           Accept: 'application/json',
+          'ngrok-skip-browser-warning': 'true', 
 
           ...(body !== undefined && {
-            'Content-Type':
-              'application/json',
+            'Content-Type': 'application/json',
           }),
 
           ...(token && {
-            Authorization:
-              `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           }),
         },
-
         body:
           body !== undefined
             ? JSON.stringify(body)
@@ -361,27 +355,12 @@ export async function apiRequest<T>(
       },
     );
   } catch (error: any) {
-    // -------------------------------------------------
-    // TIMEOUT
-    // -------------------------------------------------
-
-    if (
-      error?.name === 'AbortError'
-    ) {
+    if (error?.name === 'AbortError') {
       throw new Error(
         'The request took too long. Please check your internet connection and try again.',
       );
     }
-
-    // -------------------------------------------------
-    // NETWORK ERROR
-    // -------------------------------------------------
-
-    console.log(
-      `Network error for ${endpoint}:`,
-      error,
-    );
-
+    console.log(`Network error for ${endpoint}:`, error);
     throw new Error(
       'Unable to connect to the server. Please check your internet connection and try again.',
     );
@@ -451,6 +430,7 @@ export async function apiRequest<T>(
 
             headers: {
               Accept: 'application/json',
+              'ngrok-skip-browser-warning': 'true',
 
               ...(body !== undefined && {
                 'Content-Type':
