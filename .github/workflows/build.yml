@@ -6,6 +6,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./premium-store
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -15,10 +20,26 @@ jobs:
         with:
           node-version: 18
 
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Build on EAS
-        run: eas build --platform android --profile preview --non-interactive
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build APK on GitHub Server
+        run: eas build --platform android --profile preview --non-interactive --local
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-apk
+          path: premium-store/**/*.apk
