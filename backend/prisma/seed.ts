@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import * as bcrypt from 'bcrypt';
+
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -628,6 +630,27 @@ const products = [
 
 async function main() {
   console.log("🌱 Starting Shope2door database seed...\n");
+
+
+  // ---------------------------------------------------
+  // ADMIN USER
+  // ---------------------------------------------------
+  console.log("👤 Seeding Admin User...");
+  
+  const adminPassword = await bcrypt.hash("Admin@123", 12);
+  
+  await prisma.user.upsert({
+    where: { email: "admin@shop2door.com" },
+    update: {},
+    create: {
+      name: "Super Admin",
+      email: "admin@shop2door.com",
+      password: adminPassword,
+      role: "ADMIN",
+      isActive: true,
+    },
+  });
+  console.log("✅ Admin user ready. (admin@shop2door.com / Admin@123)\n");
 
   // ---------------------------------------------------
   // CATEGORIES
