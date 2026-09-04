@@ -54,6 +54,9 @@ import {
 import { getCategories } from '../services/category.api';
 import type { Category } from '../services/category.api';
 
+import { getBanners } from '../services/banner.api';
+import type { Banner } from '../services/banner.api';
+
 import {
   getAvailableCoupons,
 } from '../services/coupon.api';
@@ -340,6 +343,9 @@ export default function App() {
   const [registerOtpExpiresIn, setRegisterOtpExpiresIn] =
     useState<number | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [bannersLoading, setBannersLoading] = useState(true);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -875,6 +881,25 @@ const handleVerifyOtp = async () => {
     };
 
     restoreSession();
+  }, []);
+
+  useEffect(() => {
+    const loadBanners = async () => {
+      try {
+        setBannersLoading(true);
+        const response = await getBanners();
+        if (response.success && response.data) {
+          setBanners(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (error) {
+        console.log('Failed to load banners:', error);
+        setBanners([]);
+      } finally {
+        setBannersLoading(false);
+      }
+    };
+
+    loadBanners();
   }, []);
 
   useEffect(() => {
@@ -1417,17 +1442,47 @@ const AnimatedSearchPlaceholder = () => {
           }}
         >
           
-          {/* BANNERS */}
+          {/* DYNAMIC BANNERS */}
           <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 500, delay: baseDelay + 300 }}>
-            <FlatList ref={flatListRef} data={BANNERS} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item) => item.id} snapToInterval={width} snapToAlignment="center" decelerationRate="fast" contentContainerStyle={styles.bannerScrollContent} renderItem={({ item }) => (
-                <View style={styles.bannerWrapper}>
-                  <TouchableOpacity activeOpacity={0.9} style={[styles.bannerCard, { backgroundColor: item.color }]}>
-                     <Text style={styles.bannerTitle}>{item.title}</Text>
-                     <Text style={styles.bannerSub}>{item.sub}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
+            {bannersLoading ? (
+              <View style={{ height: 140, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '600' }}>Loading banners...</Text>
+              </View>
+            ) : banners.length > 0 ? (
+              <FlatList 
+                ref={flatListRef} 
+                data={banners} 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                keyExtractor={(item) => item.id} 
+                snapToInterval={width} 
+                snapToAlignment="center" 
+                decelerationRate="fast" 
+                contentContainerStyle={styles.bannerScrollContent} 
+                renderItem={({ item }) => (
+                  <View style={styles.bannerWrapper}>
+                    <TouchableOpacity activeOpacity={0.9} style={[styles.bannerCard, { backgroundColor: '#FF9F1C' }]}>
+                      {item.image ? (
+                        <Image 
+                          source={{ 
+                            uri: item.image.startsWith('http') 
+                              ? `${item.image}?ngrok-skip-browser-warning=true`
+                              : `${API_BASE_URL}/${item.image}?ngrok-skip-browser-warning=true`
+                          }} 
+                          style={{ width: '100%', height: '100%', borderRadius: 20 }} 
+                          resizeMode="cover" 
+                        />
+                      ) : (
+                        <>
+                          <Text style={styles.bannerTitle}>Special Offer</Text>
+                          <Text style={styles.bannerSub}>Shop2Door Exclusive</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            ) : null}
           </MotiView>
 
           <View style={styles.sectionContainer}>

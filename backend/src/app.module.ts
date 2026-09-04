@@ -24,6 +24,7 @@ import { CouponModule } from './coupon/coupon.module';
 import { OrderModule } from './order/order.module';
 import { PaymentModule } from './payment/payment.module';
 import { AdminModule } from './admin/admin.module';
+import { BannerModule } from './banner/banner.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -117,6 +118,8 @@ import { OrderScheduler } from './order/order.scheduler';
     AdminModule,
 
     HealthModule,
+
+    BannerModule,
   ],
 
   controllers: [

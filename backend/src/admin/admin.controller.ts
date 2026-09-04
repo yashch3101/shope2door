@@ -94,6 +94,15 @@ export class AdminController {
   }
 
   // =====================================================
+  // GET USERS / CUSTOMERS
+  // =====================================================
+
+  @Get('users')
+  async getAllCustomers() {
+    return this.adminService.getAllCustomers();
+  }
+
+  // =====================================================
   // UPDATE PRODUCT
   // =====================================================
 

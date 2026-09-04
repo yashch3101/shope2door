@@ -477,6 +477,33 @@ export class AdminService {
   }
 
   // =====================================================
+  // GET ALL USERS / CUSTOMERS
+  // =====================================================
+
+  async getAllCustomers() {
+    const users = await this.prisma.user.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Customers fetched successfully',
+      data: users,
+    };
+  }
+
+  // =====================================================
   // UPDATE PRODUCT
   // =====================================================
 
