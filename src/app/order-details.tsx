@@ -13,6 +13,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
+  Image,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -77,6 +79,17 @@ function formatDate(
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+
+function getOrderImageUrl(imagePath?: string): string | null {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+  return `${IMAGE_BASE_URL}/${cleanPath}`;
 }
 
 function getStatusLabel(
@@ -182,6 +195,14 @@ export default function OrderDetailsScreen() {
     useState(false);
 
   // ===================================================
+  // PULL TO REFRESH TRACKING
+  // ===================================================
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrder(false);
+  }, [loadOrder]);
+
+  // ===================================================
   // LOAD ORDER
   // ===================================================
 
@@ -229,6 +250,7 @@ export default function OrderDetailsScreen() {
         );
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     },
     [orderId],
@@ -395,6 +417,8 @@ export default function OrderDetailsScreen() {
   const tax =
     toNumber(order.tax);
 
+  const handlingFee = items.length > 0 ? 5 : 0;
+
   const canCancelOrder =
     !isCancelled &&
     !isReturned &&
@@ -533,90 +557,101 @@ export default function OrderDetailsScreen() {
         contentContainerStyle={
           styles.scrollContent
         }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#EAB308"
+            colors={['#EAB308']}
+          />
+        }
       >
         {/* =================================================
-            ORDER STATUS
+            ORDER TRACKING TIMELINE
         ================================================= */}
+        {(() => {
+          const getStatusLevel = (status: OrderStatus) => {
+            switch (status) {
+              case 'PENDING': return 0;
+              case 'CONFIRMED':
+              case 'PROCESSING': return 1;
+              case 'PACKED': return 2;
+              case 'DISPATCHED':
+              case 'OUT_FOR_DELIVERY': return 3;
+              case 'DELIVERED': return 4;
+              default: return -1;
+            }
+          };
 
-        <MotiView
-          from={{
-            opacity: 0,
-            scale: 0.9,
-          }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-          }}
-          transition={{
-            type: 'spring',
-            delay: 100,
-          }}
-          style={styles.statusCard}
-        >
-          <View
-            style={[
-              styles.statusIconBg,
-              isCancelled ||
-              isReturned
-                ? styles.statusIconErrorBg
-                : undefined,
-            ]}
-          >
-            <Ionicons
-              name={
-                isCancelled
-                  ? 'close-circle'
-                  : isReturned
-                    ? 'return-down-back'
-                    : order.status ===
-                        'DELIVERED'
-                      ? 'checkmark-circle'
-                      : 'time'
-              }
-              size={32}
-              color={
-                isCancelled ||
-                isReturned
-                  ? '#EF4444'
-                  : order.status ===
-                      'DELIVERED'
-                    ? '#10B981'
-                    : '#EAB308'
-              }
-            />
-          </View>
+          const TRACKING_STEPS = [
+            { label: 'Order Placed', subtext: 'We have received your order', icon: 'document-text' },
+            { label: 'Order Confirmed', subtext: 'Your order has been confirmed', icon: 'checkmark-circle' },
+            { label: 'Order Packed', subtext: 'Ready for shipping', icon: 'cube' },
+            { label: 'Out for Delivery', subtext: 'Delivery executive is on the way', icon: 'bicycle' },
+            { label: 'Delivered', subtext: 'Order delivered successfully', icon: 'home' },
+          ];
 
-          <Text style={styles.statusTitle}>
-            {isCancelled
-              ? 'Order Cancelled'
-              : isReturned
-                ? getStatusLabel(
-                    order.status,
-                  )
-                : order.status ===
-                    'DELIVERED'
-                  ? 'Order Delivered Successfully'
-                  : getStatusLabel(
-                      order.status,
-                    )}
-          </Text>
+          const currentLevel = getStatusLevel(order.status);
 
-          <Text style={styles.statusSub}>
-            {formatDate(order.createdAt)}
-          </Text>
-
-          <View style={styles.currentStatusBadge}>
-            <Text
-              style={
-                styles.currentStatusText
-              }
+          return (
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', delay: 100 }}
+              style={styles.trackingCard}
             >
-              {getStatusLabel(
-                order.status,
+              <Text style={styles.sectionTitle}>Track Order</Text>
+
+              {isCancelled || isReturned ? (
+                <View style={styles.errorStatusBox}>
+                  <Ionicons name="close-circle" size={36} color="#EF4444" />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.errorStatusTitle}>
+                      {isCancelled ? 'Order Cancelled' : getStatusLabel(order.status)}
+                    </Text>
+                    <Text style={styles.errorStatusSub}>{formatDate(order.createdAt)}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.timelineContainer}>
+                  {TRACKING_STEPS.map((step, index) => {
+                    const isCompleted = currentLevel >= index;
+                    const isCurrent = currentLevel === index;
+                    const isLast = index === TRACKING_STEPS.length - 1;
+
+                    return (
+                      <View key={index} style={styles.timelineRow}>
+                        {/* Icon & Line Column */}
+                        <View style={styles.timelineIconCol}>
+                          <View style={[styles.timelineIconBg, isCompleted && styles.timelineIconBgActive]}>
+                            <Ionicons 
+                              name={step.icon as any} 
+                              size={16} 
+                              color={isCompleted ? '#FFF' : '#9CA3AF'} 
+                            />
+                          </View>
+                          {!isLast && (
+                            <View style={[styles.timelineLine, isCompleted && currentLevel > index && styles.timelineLineActive]} />
+                          )}
+                        </View>
+
+                        {/* Text Column */}
+                        <View style={styles.timelineTextCol}>
+                          <Text style={[styles.timelineLabel, isCompleted && styles.timelineLabelActive]}>
+                            {step.label}
+                          </Text>
+                          <Text style={styles.timelineSubtext}>
+                            {isCurrent ? `Current Status: ${getStatusLabel(order.status)}` : step.subtext}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
-            </Text>
-          </View>
-        </MotiView>
+            </MotiView>
+          );
+        })()}
 
         {/* =================================================
             ITEMS
@@ -687,7 +722,23 @@ export default function OrderDetailsScreen() {
                     total > 0
                       ? total
                       : unitPrice *
-                        item.quantity;
+                          item.quantity;
+
+                  // ===================================
+                  // IMAGE URL EXTRACTION
+                  // ===================================
+                  // FIX: Order item ke andar image milne ke saare raste check karega
+                  const rawImage = 
+                    (item as any).images?.[0] || 
+                    (item as any).product?.images?.[0] || 
+                    (item as any).product?.image || 
+                    (item as any).image || 
+                    (item as any).productImage ||
+                    (item as any).imageUrl;
+
+                  console.log('ORDER ITEM IMAGE DEBUG:', { name, rawImage, fullItem: item });
+
+                  const imageUrl = getOrderImageUrl(rawImage);
 
                   return (
                     <View
@@ -704,16 +755,28 @@ export default function OrderDetailsScreen() {
                         },
                       ]}
                     >
+                      {/* PRODUCT IMAGE PLACEHOLDER REPLACED WITH REAL IMAGE */}
                       <View
                         style={
                           styles.itemImagePlaceholder
                         }
                       >
-                        <Ionicons
-                          name="image-outline"
-                          size={20}
-                          color="#9CA3AF"
-                        />
+                        {imageUrl ? (
+                          <Image
+                            source={{
+                              uri: imageUrl,
+                              headers: { 'ngrok-skip-browser-warning': 'true' }
+                            }}
+                            style={{ width: '100%', height: '100%', borderRadius: 8 }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Ionicons
+                            name="image-outline"
+                            size={20}
+                            color="#9CA3AF"
+                          />
+                        )}
                       </View>
 
                       <View
@@ -879,6 +942,16 @@ export default function OrderDetailsScreen() {
                   )}
                 </Text>
               )}
+            </View>
+
+            {/* HANDLING FEE */}
+            <View style={styles.billRow}>
+              <Text style={styles.billText}>
+                Handling Fee
+              </Text>
+              <Text style={styles.billValue}>
+                {formatMoney(handlingFee)}
+              </Text>
             </View>
 
             {tax > 0 && (
@@ -1618,5 +1691,112 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     fontSize: 16,
     fontWeight: '800',
+  },
+
+  // ===================================================
+  // TRACKING TIMELINE
+  // ===================================================
+
+  trackingCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  errorStatusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    padding: 16,
+    borderRadius: 12,
+  },
+
+  errorStatusTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+
+  errorStatusSub: {
+    fontSize: 13,
+    color: '#991B1B',
+    marginTop: 2,
+  },
+
+  timelineContainer: {
+    marginTop: 8,
+  },
+
+  timelineRow: {
+    flexDirection: 'row',
+    minHeight: 65,
+  },
+
+  timelineIconCol: {
+    alignItems: 'center',
+    width: 32,
+    marginRight: 16,
+  },
+
+  timelineIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+
+  timelineIconBgActive: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    marginTop: -4,
+    marginBottom: -4,
+    zIndex: 1,
+  },
+
+  timelineLineActive: {
+    backgroundColor: '#10B981',
+  },
+
+  timelineTextCol: {
+    flex: 1,
+    paddingBottom: 24,
+    paddingTop: 4,
+  },
+
+  timelineLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+
+  timelineLabelActive: {
+    color: '#1F2937',
+  },
+
+  timelineSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
   },
 });

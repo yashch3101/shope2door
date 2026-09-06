@@ -35,6 +35,8 @@ import {
   Cart,
 } from '../services/cart.api';
 
+import { getAppSettings, AppSettings } from '../services/settings.api';
+
 import {
   getAddresses,
   Address,
@@ -162,6 +164,8 @@ export default function CheckoutScreen() {
     setCouponDiscount,
   ] = useState(0);
 
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
   const openCouponModal = async () => {
     try {
       setShowCouponModal(true);
@@ -221,12 +225,18 @@ export default function CheckoutScreen() {
           addressResponse,
           couponResponse,
           userResponse,
+          settingsResponse,
         ] = await Promise.all([
           getCart(),
           getAddresses(),
           getAvailableCoupons(),
           getMe(accessToken),
+          getAppSettings(),
         ]);
+
+        if (settingsResponse.success && settingsResponse.data) {
+          setAppSettings(settingsResponse.data);
+        }
 
         setCurrentUser(userResponse.data);
 
@@ -376,13 +386,21 @@ export default function CheckoutScreen() {
    * by backend OrderService.
    */
 
-  const deliveryFee = 0;
+  // =====================================================
+  // DYNAMIC DELIVERY FEE FROM SETTINGS
+  // =====================================================
+  const dynamicDeliveryCharge = Number(appSettings?.delivery?.deliveryCharge) || 40;
+  const dynamicFreeAbove = Number(appSettings?.delivery?.freeDeliveryAbove) || 200;
+
+  const deliveryFee = subtotal >= dynamicFreeAbove || subtotal === 0 ? 0 : dynamicDeliveryCharge;
+  const handlingFee = totalItems > 0 ? 5 : 0;
 
   const grandTotal = Math.max(
     0,
     subtotal -
       couponDiscount +
-      deliveryFee,
+      deliveryFee +
+      handlingFee,
   );
 
 
@@ -576,31 +594,13 @@ export default function CheckoutScreen() {
         if (
           selectedPayment === 'COD'
         ) {
-
           await initiatePayment({
             orderId: order.id,
             paymentMethod: 'COD',
           });
 
-
-          Alert.alert(
-            'Order Placed',
-            `Your order ${
-              order.orderNumber ?? ''
-            } has been placed successfully.`,
-            [
-              {
-                text: 'View Orders',
-
-                onPress: () =>
-                  router.replace(
-                    '/orders',
-                  ),
-              },
-            ],
-          );
-
-
+          // Redirect to New Success Screen
+          router.replace({ pathname: '/order-success', params: { orderId: order.id } });
           return;
         }
 
@@ -1443,15 +1443,22 @@ export default function CheckoutScreen() {
               <Text
                 style={[
                   styles.billValue,
-                  {
-                    color:
-                      '#10B981',
-                  },
+                  deliveryFee === 0 && { color: '#10B981' },
                 ]}
               >
-                FREE
+                {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
               </Text>
 
+            </View>
+
+            {/* HANDLING FEE */}
+            <View style={styles.billRow}>
+              <Text style={styles.billText}>
+                Handling Fee
+              </Text>
+              <Text style={styles.billValue}>
+                ₹{handlingFee}
+              </Text>
             </View>
 
 

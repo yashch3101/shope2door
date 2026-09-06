@@ -228,6 +228,8 @@ model Product {
 
   isFeatured Boolean @default(false)
 
+  isEssential  Boolean   @default(false)
+
   // ===================================================
   // CATEGORY
   // ===================================================

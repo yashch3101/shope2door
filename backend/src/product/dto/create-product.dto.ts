@@ -120,4 +120,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isEssential?: boolean;
 }

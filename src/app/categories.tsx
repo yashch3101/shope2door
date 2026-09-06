@@ -517,13 +517,12 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent:
-      'space-between',
-    paddingHorizontal: 16,
+    justifyContent: 'flex-start', // FIX: 'space-between' ko hatakar 'flex-start' kiya taaki gap na bane
+    paddingHorizontal: 5, // Padding thodi adjust ki taaki 4 items fit aayein
   },
 
   categoryItem: {
-    width: '22%',
+    width: '25%', // FIX: 25% width ka matlab exact 4 items per row aayenge (25x4=100)
     alignItems: 'center',
     marginBottom: 24,
   },

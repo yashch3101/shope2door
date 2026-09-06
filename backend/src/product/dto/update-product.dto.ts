@@ -117,4 +117,8 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isEssential?: boolean;
 }

@@ -50,6 +50,8 @@ export class AdminService {
       failedPayments,
 
       revenueResult,
+
+      recentOrders,
     ] = await Promise.all([
       // USERS
       this.prisma.user.count(),
@@ -133,10 +135,24 @@ export class AdminService {
           status: 'SUCCESS',
         },
       }),
+
+      this.prisma.order.findMany({
+        take: 5,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      }),
     ]);
 
-    const revenue =
-      revenueResult._sum.amount?.toNumber() ?? 0;
+    const revenue = revenueResult._sum.amount?.toNumber() ?? 0;
 
     return {
       users: {
@@ -167,6 +183,7 @@ export class AdminService {
       },
 
       revenue,
+      recentOrders,
     };
   }
 
@@ -941,6 +958,33 @@ export class AdminService {
         'Product stock updated successfully',
 
       product: updatedProduct,
+    };
+  }
+
+  async updateUserStatus(userId: string, isActive: boolean) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: `User status updated successfully`,
+      data: updatedUser,
     };
   }
 

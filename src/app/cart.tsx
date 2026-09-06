@@ -37,6 +37,8 @@ import type {
   CartSummary,
 } from '../services/cart.api';
 
+import { getAppSettings, AppSettings } from '../services/settings.api';
+
 import { getAccessToken } from '../services/auth.storage';
 
 const { width } = Dimensions.get('window');
@@ -44,7 +46,17 @@ const { width } = Dimensions.get('window');
 export default function CartScreen() {
   const router = useRouter();
 
-  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  // VPS ka live ngrok domain (api/v1 ke bina)
+  const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+
+  const getCartImageUrl = (imagePath?: string) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+    return `${IMAGE_BASE_URL}/${cleanPath}`;
+  };
 
   // =====================================================
   // CART STATE
@@ -57,6 +69,8 @@ export default function CartScreen() {
     totalMrp: 0,
     totalSavings: 0,
   });
+
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
   // =====================================================
   // LOADING STATE
@@ -84,6 +98,11 @@ export default function CartScreen() {
           setLoading(true);
         }
 
+        const settingsRes = await getAppSettings();
+        if (settingsRes.success && settingsRes.data) {
+          setAppSettings(settingsRes.data);
+        }
+
         const token = await getAccessToken();
 
         if (!token) {
@@ -98,6 +117,7 @@ export default function CartScreen() {
         }
 
         const response = await getCart();
+        console.log('CART API FULL RESPONSE:', response);
 
         if (response.success && response.data) {
           setCartItems(response.data.items);
@@ -348,6 +368,19 @@ export default function CartScreen() {
       return;
     }
 
+    if (isStoreClosed) {
+      Alert.alert('Store Closed', storeClosedMessage);
+      return;
+    }
+
+    if (itemTotal < minimumOrderAmount) {
+      Alert.alert(
+        'Minimum Order Required',
+        `Minimum order amount is ₹${minimumOrderAmount}. Please add ₹${minimumOrderAmount - itemTotal} more to proceed.`
+      );
+      return;
+    }
+
     try {
       const token = await getAccessToken();
 
@@ -372,7 +405,6 @@ export default function CartScreen() {
         return;
       }
 
-      // Navigate to real checkout screen
       router.push('/checkout');
     } catch (error) {
       console.error(
@@ -388,22 +420,20 @@ export default function CartScreen() {
   };
 
   // =====================================================
-  // BILL
+  // BILL CALCULATION (DYNAMIC)
   // =====================================================
 
-  const itemTotal =
-    summary.subtotal;
+  const itemTotal = Number(summary.subtotal) || 0;
 
-  const deliveryFee =
-    itemTotal > 200 ? 0 : 40;
+  const dynamicDeliveryCharge = Number(appSettings?.delivery?.deliveryCharge) || 40;
+  const dynamicFreeAbove = Number(appSettings?.delivery?.freeDeliveryAbove) || 200;
+  const minimumOrderAmount = Number(appSettings?.delivery?.minimumOrderAmount) || 0;
+  const isStoreClosed = appSettings?.store?.isClosed ?? false;
+  const storeClosedMessage = appSettings?.store?.closedMessage ?? 'We are currently closed for orders.';
 
-  const handlingFee =
-    cartItems.length > 0 ? 5 : 0;
-
-  const grandTotal =
-    itemTotal +
-    deliveryFee +
-    handlingFee;
+  const deliveryFee = itemTotal >= dynamicFreeAbove || itemTotal === 0 ? 0 : dynamicDeliveryCharge;
+  const handlingFee = cartItems.length > 0 ? 5 : 0;
+  const grandTotal = itemTotal + deliveryFee + handlingFee;
 
   // =====================================================
   // LOADING SCREEN
@@ -513,6 +543,14 @@ export default function CartScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {isStoreClosed && (
+        <View style={{ backgroundColor: '#FEE2E2', padding: 10, alignItems: 'center' }}>
+          <Text style={{ color: '#DC2626', fontWeight: '700', fontSize: 13 }}>
+            ⚠️ {storeClosedMessage}
+          </Text>
+        </View>
+      )}
 
       {/* =================================================
           EMPTY CART
@@ -638,6 +676,7 @@ export default function CartScreen() {
                     item,
                     index,
                   ) => {
+                    console.log('CART ITEM DATA:', item);
                     const isUpdating =
                       updatingProductId ===
                       item.productId;
@@ -646,8 +685,8 @@ export default function CartScreen() {
                       removingProductId ===
                       item.productId;
 
-                    const image =
-                      item.images?.[0];
+                    const rawImage = item.images?.[0];
+                    const imageUrl = getCartImageUrl(rawImage);
 
                     return (
                       <MotiView
@@ -680,23 +719,23 @@ export default function CartScreen() {
                             styles.itemImagePlaceholder
                           }
                         >
-                          {image ? (
-                            <Image
-                              source={{
-                                uri: `${API_BASE_URL}/${image}?ngrok-skip-browser-warning=true`,
-                                headers: { 'ngrok-skip-browser-warning': 'true' }
-                              }}
-                              style={styles.itemImage}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <Ionicons
-                              name="image-outline"
-                              size={24}
-                              color="#9CA3AF"
-                            />
-                          )}
-                        </View>
+                          {imageUrl ? (
+                          <Image
+                            source={{
+                              uri: imageUrl,
+                              headers: { 'ngrok-skip-browser-warning': 'true' }
+                            }}
+                            style={styles.itemImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Ionicons
+                            name="image-outline"
+                            size={24}
+                            color="#9CA3AF"
+                          />
+                        )}
+                      </View>
 
                         {/* PRODUCT DETAILS */}
 
@@ -1062,9 +1101,10 @@ export default function CartScreen() {
             </View>
 
             <TouchableOpacity
-              style={
-                styles.checkoutBtn
-              }
+              style={[
+                styles.checkoutBtn,
+                isStoreClosed && { backgroundColor: '#9CA3AF' }
+              ]}
               activeOpacity={0.8}
               onPress={
                 handleCheckout
@@ -1075,14 +1115,16 @@ export default function CartScreen() {
                   styles.checkoutBtnText
                 }
               >
-                Proceed to Pay
+                {isStoreClosed ? 'Store Closed' : 'Proceed to Pay'}
               </Text>
 
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color="#1F2937"
-              />
+              {!isStoreClosed && (
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color="#1F2937"
+                />
+              )}
             </TouchableOpacity>
           </MotiView>
         </View>

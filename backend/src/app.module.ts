@@ -25,6 +25,7 @@ import { OrderModule } from './order/order.module';
 import { PaymentModule } from './payment/payment.module';
 import { AdminModule } from './admin/admin.module';
 import { BannerModule } from './banner/banner.module';
+import { SettingsModule } from './settings/settings.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -120,6 +121,8 @@ import { OrderScheduler } from './order/order.scheduler';
     HealthModule,
 
     BannerModule,
+
+    SettingsModule,
   ],
 
   controllers: [

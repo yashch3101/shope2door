@@ -436,6 +436,7 @@ export default function CategoryDetailsScreen() {
     }
 
     try {
+      // Pass product.id directly
       await addToCart(product.id, 1);
 
       Alert.alert(
@@ -586,7 +587,11 @@ export default function CategoryDetailsScreen() {
                       <View style={styles.iconCircle}>
                         {isValidIconUrl(category.icon) ? (
                           <NgrokSvg
-                            uri={`${API_BASE_URL}/${category.icon!.trim()}?ngrok-skip-browser-warning=true`}
+                            uri={
+                              category.icon?.startsWith('http')
+                                ? category.icon.trim()
+                                : `${API_BASE_URL}/${category.icon!.trim()}`
+                            }
                             width={32}
                             height={32}
                           />
@@ -745,7 +750,9 @@ export default function CategoryDetailsScreen() {
                         {item.images && item.images.length > 0 ? (
                           <Image
                             source={{ 
-                              uri: `${API_BASE_URL}/${item.images[0]}?ngrok-skip-browser-warning=true`,
+                              uri: item.images[0].startsWith('http') 
+                                ? item.images[0] 
+                                : `${API_BASE_URL}/${item.images[0]}`,
                               headers: { 'ngrok-skip-browser-warning': 'true' }
                             }}
                             style={{ width: '100%', height: '100%', borderRadius: 12 }}
@@ -895,16 +902,32 @@ export default function CategoryDetailsScreen() {
 }
 
 const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
-  const [xml, setXml] = React.useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
-  React.useEffect(() => {
-    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
-      .then(res => res.text())
-      .then(text => setXml(text))
-      .catch(err => console.log('SVG Fetch Error:', err));
-  }, [uri]);
+  let sanitizedUri = uri ? uri.trim().replace(/\s+/g, '%20') : '';
 
-  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+  if (sanitizedUri.includes('api.iconify.design') && sanitizedUri.endsWith('.svg')) {
+    sanitizedUri = sanitizedUri.replace('.svg', '.png') + '?width=120';
+  }
+
+  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+    return (
+      <View style={{ width, height, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 12 }}>
+        <Ionicons name="fast-food-outline" size={width * 0.55} color="#CA8A04" />
+      </View>
+    );
+  }
+
+  return (
+    <Image 
+      source={{ uri: sanitizedUri }}
+      style={{ width, height, resizeMode: 'contain' }}
+      onError={() => {
+        console.log("Failed to load icon:", sanitizedUri);
+        setHasError(true);
+      }}
+    />
+  );
 };
 
 // =======================================================

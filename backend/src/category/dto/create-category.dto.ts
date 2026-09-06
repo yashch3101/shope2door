@@ -36,7 +36,7 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @MaxLength(2048)
   icon?: string;
 
   @IsOptional()

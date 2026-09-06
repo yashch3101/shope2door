@@ -11,15 +11,20 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 
+import { ConfigService } from '@nestjs/config';
+
 import { PrismaService } from '../prisma/prisma.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
+import * as nodemailer from 'nodemailer';
+
 @Injectable()
 export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
 
   // =====================================================
@@ -325,6 +330,7 @@ export class OrderService {
         // =================================================
 
         const tax = 0;
+        const handlingFee = cart.items.length > 0 ? 5 : 0;
 
         // =================================================
         // 8. FINAL TOTAL
@@ -335,6 +341,7 @@ export class OrderService {
             subtotal -
             discount +
             deliveryFee +
+            handlingFee +
             tax
           ).toFixed(2),
         );
@@ -535,6 +542,67 @@ export class OrderService {
             cartId: cart.id,
           },
         });
+
+        // =================================================
+        // 13.5 SEND EMAIL NOTIFICATIONS (CUSTOMER & ADMIN)
+        // =================================================
+        try {
+          const smtpEmail = this.configService.get<string>('SMTP_EMAIL');
+          const smtpPassword = this.configService.get<string>('SMTP_PASSWORD');
+          const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: smtpEmail,
+              pass: smtpPassword,
+            },
+          });
+
+          // 1. Email to Customer
+          const customerMailOptions = {
+            from: `"Shop2Door" <${smtpEmail}>`,
+            to: user.email,
+            subject: `Order Confirmed - ${orderNumber}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <h2 style="color: #1f2937;">Order Confirmation</h2>
+                <p>Hi <b>${user.name}</b>,</p>
+                <p>Thank you for shopping with <b>Shop2Door</b>! Your order has been placed successfully.</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+                <p><b>Order ID:</b> ${orderNumber}</p>
+                <p><b>Total Amount:</b> ₹${total}</p>
+                <p><b>Delivery Address:</b> ${address.addressLine1}, ${address.city}</p>
+                <p style="margin-top: 20px; color: #4b5563;">We will notify you once your order is out for delivery.</p>
+              </div>
+            `,
+          };
+          await transporter.sendMail(customerMailOptions);
+
+          // 2. Separate Email to Admin
+          if (adminEmail) {
+            const adminMailOptions = {
+              from: `"Shop2Door" <${smtpEmail}>`,
+              to: adminEmail,
+              subject: `🔔 New Order Received - ${orderNumber}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #fdf2f8;">
+                  <h2 style="color: #db2777;">New Order Alert!</h2>
+                  <p>A new order has been placed by <b>${user.name}</b>.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+                  <p><b>Order ID:</b> ${orderNumber}</p>
+                  <p><b>Customer Email:</b> ${user.email}</p>
+                  <p><b>Phone:</b> ${user.phone}</p>
+                  <p><b>Total Amount:</b> ₹${total}</p>
+                  <p><b>Delivery Address:</b> ${address.addressLine1}, ${address.city}</p>
+                </div>
+              `,
+            };
+            await transporter.sendMail(adminMailOptions);
+          }
+        } catch (mailErr) {
+          console.error('❌ Failed to send order emails:', mailErr);
+        }
 
         // =================================================
         // 14. RETURN ORDER

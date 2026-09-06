@@ -143,6 +143,9 @@ export class ProductService {
 
           isFeatured:
             dto.isFeatured ?? false,
+
+          isEssential:
+            dto.isEssential ?? false,
         },
 
         include: {
@@ -300,6 +303,8 @@ export class ProductService {
           isActive: true,
 
           isFeatured: true,
+
+          isEssential: true,
 
           category: {
             select: {
@@ -869,6 +874,7 @@ export class ProductService {
       categoryId?: string;
       isActive?: boolean;
       isFeatured?: boolean;
+      isEssential?: boolean;
     } = {};
 
     if (dto.name !== undefined) {
@@ -969,6 +975,10 @@ export class ProductService {
     ) {
       data.isFeatured =
         dto.isFeatured;
+    }
+
+    if (dto.isEssential !== undefined) {
+      data.isEssential = dto.isEssential;
     }
 
     // ---------------------------------------------

@@ -10,6 +10,7 @@ import {
   ScrollView,
   FlatList,
   Image,
+  Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -442,11 +443,11 @@ export default function ProductDetailsScreen() {
               {item ? (
                 <Image
                   source={{ 
-                    uri: `${API_BASE_URL}/${item}?ngrok-skip-browser-warning=true`,
+                    uri: item ? (item.startsWith('http') ? item : `${API_BASE_URL}/${item}`) : '',
                     headers: { 'ngrok-skip-browser-warning': 'true' }
                   }}
                   style={styles.productImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               ) : (
                 <Ionicons
@@ -627,7 +628,7 @@ export default function ProductDetailsScreen() {
                     {item.images?.[0] ? (
                       <Image
                         source={{ 
-                          uri: `${API_BASE_URL}/${item.images[0]}?ngrok-skip-browser-warning=true`,
+                          uri: item.images[0].startsWith('http') ? item.images[0] : `${API_BASE_URL}/${item.images[0]}`,
                           headers: { 'ngrok-skip-browser-warning': 'true' }
                         }}
                         style={styles.similarProductImage}
@@ -789,14 +790,38 @@ export default function ProductDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  floatingHeader: { position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
+  floatingHeader: { 
+    position: 'absolute', 
+    top: Platform.OS === 'ios' ? 50 : 45,
+    left: 0, 
+    right: 0, 
+    zIndex: 10, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16 
+  },
   circleBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAB308', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
   
   scrollContent: { paddingBottom: 120 },
   
-  imageSection: { width: '100%', height: height * 0.45, backgroundColor: '#F9FAFB', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' },
+  imageSection: { 
+    width: '100%', 
+    height: height * 0.45, 
+    backgroundColor: '#FFF', 
+    borderBottomLeftRadius: 24, 
+    borderBottomRightRadius: 24, 
+    overflow: 'hidden',
+    marginTop: 22,
+  },
 
-  imagePlaceholder: { width: width, height: height * 0.45, justifyContent: 'center', alignItems: 'center' },
+  imagePlaceholder: { 
+    width: width, 
+    height: height * 0.45, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingTop: 70,
+    paddingBottom: 20 
+  },
   dotsContainer: { flexDirection: 'row', alignItems: 'center', position: 'absolute', bottom: 20, width: '100%', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginHorizontal: 4 },
   activeDot: { backgroundColor: '#EAB308', width: 20 },
@@ -885,9 +910,9 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
 
-  productImage: {
-    width: '90%',
-    height: '90%',
+  productImage: { 
+    width: '100%',
+    height: '100%',
   },
   
   similarProductImage: {

@@ -22,6 +22,7 @@ import { AdminService } from './admin.service';
 import { CreateAdminProductDto } from './dto/create-admin-product.dto';
 import { UpdateAdminProductDto } from './dto/update-admin-product.dto';
 import { UpdateProductStockDto } from './dto/update-product-stock.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 @Controller('admin')
 @UseGuards(
@@ -117,6 +118,17 @@ export class AdminController {
     return this.adminService.updateProduct(
       productId,
       dto,
+    );
+  }
+
+  @Patch('users/:id/status')
+  async updateUserStatus(
+    @Param('id') userId: string,
+    @Body() dto: UpdateUserStatusDto,
+  ) {
+    return this.adminService.updateUserStatus(
+      userId,
+      dto.isActive,
     );
   }
 

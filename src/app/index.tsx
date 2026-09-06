@@ -57,6 +57,8 @@ import type { Category } from '../services/category.api';
 import { getBanners } from '../services/banner.api';
 import type { Banner } from '../services/banner.api';
 
+import { getAppSettings, AppSettings } from '../services/settings.api';
+
 import {
   getAvailableCoupons,
 } from '../services/coupon.api';
@@ -84,12 +86,7 @@ const PRODUCT_CARD_WIDTH = width * 0.38;
 let isAppInitialized = false;
 
 // --- DUMMY DATA ---
-const SEARCH_WORDS = ['"Snacks"', '"Cold Drinks"', '"Fresh Veggies"', '"Dairy Products"', '"Chocolates"']; 
-const BANNERS = [
-  { id: '1', color: '#FF9F1C', title: 'Rolls Singh', sub: 'Love At First Bite' },
-  { id: '2', color: '#2EC4B6', title: 'Fresh Veggies', sub: 'Farm to Home' },
-  { id: '3', color: '#E63946', title: 'Mega Sale', sub: 'Up to 50% OFF' },
-];
+const SEARCH_WORDS = ['"Snacks"', '"Cold Drinks"', '"Fresh Veggies"', '"Dairy Products"', '"Chocolates"'];
 const CATEGORIES = [
   { id: '1', name: 'Gift & Hampers', icon: '🎁' },
   { id: '2', name: 'Listing in process', icon: '⏳' },
@@ -160,9 +157,11 @@ const mapProductToCard = (
       product.stock > 0
         ? 'Add to Cart'
         : 'Out of Stock',
-    image: product.images && product.images.length > 0 
-         ? `${API_BASE_URL}/${product.images[0]}` 
-         : undefined,
+        image: product.images && product.images.length > 0 
+          ? (product.images[0].startsWith('http') 
+              ? product.images[0] 
+              : `${API_BASE_URL}/${product.images[0]}`) 
+          : undefined,
   };
 };
 
@@ -347,6 +346,22 @@ export default function App() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoading, setBannersLoading] = useState(true);
 
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await getAppSettings();
+        if (res.success && res.data) {
+          setAppSettings(res.data);
+        }
+      } catch (err) {
+        console.log('Failed to load settings:', err);
+      }
+    };
+    loadSettings();
+  }, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [regName, setRegName] = useState('');
@@ -493,6 +508,11 @@ export default function App() {
   };
 
   const handleAddToCart = async (productId: string) => {
+    if (appSettings?.store?.isClosed) {
+      Alert.alert('Store Closed', appSettings.store.closedMessage || 'We are currently closed for orders.');
+      return;
+    }
+
     if (!requireLogin()) {
       return;
     }
@@ -1009,7 +1029,7 @@ const handleVerifyOtp = async () => {
 
         const response = await getProducts({
           page: 1,
-          limit: 20,
+          limit: 50,
         });
         console.log('PRODUCTS FETCHED:', response);
 
@@ -1048,25 +1068,25 @@ const handleVerifyOtp = async () => {
 
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const nextIndex =
-        (bannerIndexRef.current + 1) % BANNERS.length;
+  if (banners.length <= 1) return;
 
-      bannerIndexRef.current = nextIndex;
+  const interval = setInterval(() => {
+    const nextIndex = (bannerIndexRef.current + 1) % banners.length;
+    bannerIndexRef.current = nextIndex;
+    flatListRef.current?.scrollToIndex({
+      index: nextIndex,
+      animated: true,
+    });
+  }, 3500);
 
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-      });
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, []);
+  return () => clearInterval(interval);
+}, [banners.length]);
 
   const essentialProducts: ProductItem[] =
   products.length > 0
     ? products
-        .slice(0, 3)
+        .filter((product: any) => product.isEssential)
+        .slice(0, 15)
         .map(mapProductToCard)
     : [];
 
@@ -1078,11 +1098,11 @@ const featuredProducts =
 const bestSellingProducts: ProductItem[] =
   featuredProducts.length > 0
     ? featuredProducts
-        .slice(0, 3)
+        .slice(0, 15)
         .map(mapProductToCard)
     : products.length > 0
       ? products
-          .slice(0, 3)
+          .slice(0, 15)
           .map(mapProductToCard)
       : [];
 
@@ -1096,7 +1116,7 @@ const hotDealProducts: ProductItem[] =
             (Number(a.mrp) -
               Number(a.price)),
         )
-        .slice(0, 3)
+        .slice(0, 15)
         .map(mapProductToCard)
     : [];
 
@@ -1442,6 +1462,15 @@ const AnimatedSearchPlaceholder = () => {
           }}
         >
           
+          {/* STORE CLOSED BANNER */}
+          {appSettings?.store?.isClosed && (
+            <MotiView from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ backgroundColor: '#FEE2E2', marginHorizontal: width * 0.04, marginTop: 16, padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' }}>
+              <Text style={{ color: '#DC2626', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                ⚠️ {appSettings.store.closedMessage || 'We are currently closed for orders.'}
+              </Text>
+            </MotiView>
+          )}
+
           {/* DYNAMIC BANNERS */}
           <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', duration: 500, delay: baseDelay + 300 }}>
             {bannersLoading ? (
@@ -1461,23 +1490,18 @@ const AnimatedSearchPlaceholder = () => {
                 contentContainerStyle={styles.bannerScrollContent} 
                 renderItem={({ item }) => (
                   <View style={styles.bannerWrapper}>
-                    <TouchableOpacity activeOpacity={0.9} style={[styles.bannerCard, { backgroundColor: '#FF9F1C' }]}>
+                    <TouchableOpacity activeOpacity={0.9} style={styles.bannerCard}>
                       {item.image ? (
                         <Image 
                           source={{ 
                             uri: item.image.startsWith('http') 
-                              ? `${item.image}?ngrok-skip-browser-warning=true`
+                              ? (item.image.includes('?') ? `${item.image}&ngrok-skip-browser-warning=true` : `${item.image}?ngrok-skip-browser-warning=true`)
                               : `${API_BASE_URL}/${item.image}?ngrok-skip-browser-warning=true`
                           }} 
-                          style={{ width: '100%', height: '100%', borderRadius: 20 }} 
+                          style={{ width: '100%', height: '100%', borderRadius: 16 }} 
                           resizeMode="cover" 
                         />
-                      ) : (
-                        <>
-                          <Text style={styles.bannerTitle}>Special Offer</Text>
-                          <Text style={styles.bannerSub}>Shop2Door Exclusive</Text>
-                        </>
-                      )}
+                      ) : null}
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1568,28 +1592,19 @@ const AnimatedSearchPlaceholder = () => {
               ) : coupons.length > 0 ? (
                 coupons.map((coupon) => {
                   const value =
-                    Number(coupon.value) || 0;
+                    Number(coupon.value || (coupon as any).discountValue) || 0;
 
                   return (
-                    <TouchableOpacity
+                    <View
                       key={coupon.id}
-                      activeOpacity={0.8}
                       style={[
                         styles.couponCard,
                         {
-                          backgroundColor:
-                            '#FEF3C7',
+                          backgroundColor: '#FEF3C7',
                         },
                       ]}
-                      onPress={() => {
-                        if (requireLogin()) {
-                          router.push('/checkout');
-                        }
-                      }}
                     >
-                      <Text
-                        style={styles.couponCode}
-                      >
+                      <Text style={styles.couponCode}>
                         {coupon.code}
                       </Text>
 
@@ -1597,13 +1612,10 @@ const AnimatedSearchPlaceholder = () => {
                         style={styles.couponDesc}
                         numberOfLines={2}
                       >
-                        {coupon.description ||
-                          (coupon.type ===
-                          'PERCENTAGE'
+                        {(coupon as any).description ||
+                          ((coupon.type || (coupon as any).discountType) === 'PERCENTAGE'
                             ? `${value}% OFF`
-                            : `₹${value.toFixed(
-                                0,
-                              )} OFF`)}
+                            : `₹${value.toFixed(0)} OFF`)}
                       </Text>
 
                       <View
@@ -1611,7 +1623,7 @@ const AnimatedSearchPlaceholder = () => {
                           styles.couponDashedLine
                         }
                       />
-                    </TouchableOpacity>
+                    </View>
                   );
                 })
               ) : (
@@ -2113,15 +2125,36 @@ const styles = StyleSheet.create({
   
   bannerScrollContent: { paddingTop: 20, paddingBottom: 10 },
   bannerWrapper: { width: width, alignItems: 'center' },
-  bannerCard: { width: BANNER_WIDTH, height: 140, borderRadius: 20, padding: 20, justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 },
+  bannerCard: { 
+    width: BANNER_WIDTH, 
+    height: 140, 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    backgroundColor: '#F3F4F6',
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 6, 
+    elevation: 3 
+  },
   bannerTitle: { fontSize: 24, fontWeight: '900', color: '#FFF', marginBottom: 4 },
   bannerSub: { fontSize: 14, fontWeight: '600', color: '#FFF' },
 
   sectionContainer: { marginTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937', marginBottom: 16, paddingHorizontal: width * 0.04 },
   horizontalScrollPadding: { paddingHorizontal: width * 0.04, paddingBottom: 10 },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: width * 0.04 },
-  categoryItem: { width: '22%', alignItems: 'center', marginBottom: 20 },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    paddingHorizontal: width * 0.01,
+  },
+
+  categoryItem: {
+    width: '25%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   categoryIconCircle: { width: 65, height: 65, borderRadius: 35, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3, marginBottom: 8 },
   emojiIcon: { fontSize: 30 },
   categoryName: { fontSize: 11, fontWeight: '600', color: '#4B5563', textAlign: 'center' },
