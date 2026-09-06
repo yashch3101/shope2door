@@ -11,9 +11,6 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     {
-      // IMPORTANT:
-      // Razorpay webhook signature verification
-      // requires access to the raw request body.
       rawBody: true,
     },
   );
@@ -54,33 +51,14 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(
-    new HttpExceptionFilter(),
+    new HttpExceptionFilter()
   );
 
   // =====================================================
   // CORS
   // =====================================================
-  const corsOrigins =
-    process.env.CORS_ORIGINS
-      ?.split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean) ?? [];
-
-  const isProduction = process.env.NODE_ENV === 'production';
-
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-      if (!isProduction && corsOrigins.length === 0) {
-        return callback(null, true);
-      }
-      if (corsOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('Origin not allowed by CORS'), false);
-    },
+    origin: true,
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -90,6 +68,7 @@ async function bootstrap() {
       'X-Requested-With',
       'X-Razorpay-Signature',
       'X-Razorpay-Event-Id',
+      'ngrok-skip-browser-warning',
     ],
   });
 
