@@ -1237,7 +1237,7 @@ const searchResults = normalizedSearch.length === 0
                           )}
                           {otpSent && (
                             <>
-                              <TextInput style={styles.inputField} placeholder="Enter 6-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={6} value={otp} onChangeText={(value) => { setOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!otpLoading} />
+                              <TextInput style={styles.inputField} placeholder="Enter 4-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={4} value={otp} onChangeText={(value) => { setOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!otpLoading} />
                               <TouchableOpacity style={[ styles.primaryAuthBtn, otpLoading && { opacity: 0.6 } ]} onPress={handleVerifyOtp} activeOpacity={0.8} disabled={otpLoading}>
                                 <Text style={styles.primaryAuthBtnText}>{otpLoading ? 'Verifying...' : 'Verify & Login'}</Text>
                               </TouchableOpacity>
@@ -1265,7 +1265,7 @@ const searchResults = normalizedSearch.length === 0
                           )}
                           {registerOtpSent && (
                             <>
-                              <TextInput style={styles.inputField} placeholder="Enter 6-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={6} value={registerOtp} onChangeText={(value) => { setRegisterOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!registerOtpLoading} autoFocus />
+                              <TextInput style={styles.inputField} placeholder="Enter 4-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={4} value={registerOtp} onChangeText={(value) => { setRegisterOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!registerOtpLoading} autoFocus />
                               <TouchableOpacity style={[ styles.primaryAuthBtn, registerOtpLoading && { opacity: 0.6 } ]} onPress={handleVerifyRegisterOtp} activeOpacity={0.8} disabled={registerOtpLoading}>
                                 <Text style={styles.primaryAuthBtnText}>{registerOtpLoading ? 'Creating Account...' : 'Verify & Create Account'}</Text>
                               </TouchableOpacity>

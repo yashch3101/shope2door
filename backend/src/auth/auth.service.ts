@@ -8,9 +8,8 @@ import {
 
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
-
+import axios from 'axios';
 import type { SignOptions } from 'jsonwebtoken';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,14 +37,80 @@ export class AuthService {
     if (!process.env.JWT_ACCESS_SECRET) {
       throw new Error('JWT_ACCESS_SECRET is not configured');
     }
-
     if (!process.env.JWT_REFRESH_SECRET) {
       throw new Error('JWT_REFRESH_SECRET is not configured');
     }
   }
 
   // =====================================================
-  // REGISTER
+  // GETOTP OFFICIAL API INTEGRATION (X-OTP-Key)
+  // =====================================================
+
+  private async sendGetOTP(phone: string): Promise<void> {
+    const apiKey = process.env.GETOTP_API_KEY?.trim();
+    const senderId = process.env.GETOTP_SENDER_ID?.trim();
+    const templateId = process.env.GETOTP_TEMPLATE_ID?.trim();
+
+    if (!apiKey) throw new ServiceUnavailableException('GetOTP API key is missing in .env');
+
+    try {
+      await axios.post(
+        'https://api.otp.dev/v1/verifications',
+        { 
+          // YAHAN THI GALTI! Payload ko 'data' object ke andar daalna tha
+          data: {
+            channel: 'sms', 
+            sender: senderId,
+            phone: `91${phone}`, 
+            template: templateId,
+            code_length: 4
+          }
+        },
+        { 
+          headers: { 
+            'X-OTP-Key': apiKey,
+            'accept': 'application/json',
+            'content-type': 'application/json'
+          } 
+        }
+      );
+    } catch (error: any) {
+      console.error('GetOTP Send Error:', error.response?.data || error.message);
+      throw new ServiceUnavailableException('Unable to send OTP via GetOTP.');
+    }
+  }
+
+  private async verifyGetOTP(phone: string, otp: string): Promise<boolean> {
+    const apiKey = process.env.GETOTP_API_KEY?.trim();
+    if (!apiKey) throw new ServiceUnavailableException('GetOTP API key is missing in .env');
+
+    try {
+      // GetOTP ka official verify endpoint GET request maangta hai
+      const response = await axios.get(
+        `https://api.otp.dev/v1/verifications?code=${otp}&phone=91${phone}`,
+        { 
+          headers: { 
+            'X-OTP-Key': apiKey,
+            'accept': 'application/json'
+          } 
+        }
+      );
+      
+      // Agar 'data' array ke andar details hain, matlab OTP valid hai
+      if (response.data && response.data.data && response.data.data.length > 0) {
+        return true;
+      }
+      
+      // Agar array khali hai, toh OTP galat ya expire ho chuka hai
+      return false; 
+    } catch (error: any) {
+      console.error('GetOTP Verify Error:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  // =====================================================
+  // REGISTER (EMAIL/PASSWORD)
   // =====================================================
 
   async register(dto: RegisterDto) {
@@ -59,25 +124,15 @@ export class AuthService {
           ...(phone ? [{ phone }] : []),
         ],
       },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-      },
+      select: { id: true, email: true, phone: true },
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        throw new ConflictException('Email is already registered');
-      }
-
-      if (phone && existingUser.phone === phone) {
-        throw new ConflictException('Phone number is already registered');
-      }
+      if (existingUser.email === email) throw new ConflictException('Email is already registered');
+      if (phone && existingUser.phone === phone) throw new ConflictException('Phone number is already registered');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
-
     let user;
 
     try {
@@ -91,69 +146,22 @@ export class AuthService {
           isActive: true,
         },
         select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
+          id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true,
         },
       });
     } catch (error: any) {
-      if (error?.code === 'P2002') {
-        throw new ConflictException('Email or phone number is already registered');
-      }
+      if (error?.code === 'P2002') throw new ConflictException('Email or phone number is already registered');
       throw error;
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
 
-    return {
-      user,
-      ...tokens,
-    };
+    return { user, ...tokens };
   }
 
   // =====================================================
-  // FAST2SMS OTP DELIVERY (BINA DLT WALA ROUTE)
-  // =====================================================
-  private async sendOtpSms(
-    phone: string,
-    otp: string,
-  ): Promise<void> {
-    const apiKey = process.env.FAST2SMS_API_KEY?.trim();
-
-    if (!apiKey) {
-      throw new ServiceUnavailableException('SMS service is not configured');
-    }
-
-    try {
-      const url = new URL('https://www.fast2sms.com/dev/bulkV2');
-      url.searchParams.set('authorization', apiKey);
-      url.searchParams.set('variables_values', otp);
-      url.searchParams.set('route', 'otp');
-      url.searchParams.set('numbers', phone);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-      });
-
-      const result = (await response.json()) as any;
-
-      if (!response.ok || result?.return === false) {
-        console.error('Fast2SMS Error:', result);
-        throw new Error('Fast2SMS rejected the OTP request');
-      }
-    } catch (error) {
-      console.error('SMS Error:', error);
-      throw new ServiceUnavailableException('Unable to send OTP. Please try again later.');
-    }
-  }
-
-  // =====================================================
-  // NEW CUSTOMER - REQUEST OTP (LEGACY FLOW)
+  // NEW CUSTOMER - REQUEST OTP
   // =====================================================
 
   async requestRegisterOtp(dto: RegisterDto) {
@@ -161,13 +169,8 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const phone = dto.phone?.trim() || '';
 
-    if (!name || name.length < 2) {
-      throw new ConflictException('Name must be at least 2 characters');
-    }
-
-    if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
-      throw new ConflictException('A valid 10-digit phone number is required');
-    }
+    if (!name || name.length < 2) throw new ConflictException('Name must be at least 2 characters');
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) throw new ConflictException('A valid 10-digit phone number is required');
 
     const existingByEmail = await this.prisma.user.findUnique({
       where: { email },
@@ -183,13 +186,8 @@ export class AuthService {
       throw new ConflictException('This phone number belongs to an existing customer. Please use customer login.');
     }
 
-    if (existingByEmail && existingByEmail.phone !== phone) {
-      throw new ConflictException('Email is already registered');
-    }
-
-    if (existingByPhone && existingByPhone.email !== email) {
-      throw new ConflictException('Phone number is already registered');
-    }
+    if (existingByEmail && existingByEmail.phone !== phone) throw new ConflictException('Email is already registered');
+    if (existingByPhone && existingByPhone.email !== email) throw new ConflictException('Phone number is already registered');
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
     let userId: string;
@@ -197,12 +195,7 @@ export class AuthService {
     if (!existingByEmail && !existingByPhone) {
       const user = await this.prisma.user.create({
         data: {
-          name,
-          email,
-          phone,
-          password: hashedPassword,
-          role: UserRole.CUSTOMER,
-          isActive: false,
+          name, email, phone, password: hashedPassword, role: UserRole.CUSTOMER, isActive: false,
         },
         select: { id: true },
       });
@@ -220,46 +213,18 @@ export class AuthService {
       userId = user.id;
     }
 
-    await this.prisma.legacyOtpChallenge.deleteMany({
-      where: { userId, consumedAt: null },
-    });
-
-    const otp = randomInt(100000, 1000000).toString();
-    const otpHash = await bcrypt.hash(otp, 12);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    await this.prisma.legacyOtpChallenge.create({
-      data: { userId, otpHash, expiresAt },
-    });
-
     const demoOtpEnabled = process.env.LEGACY_OTP_DEMO === 'true' || process.env.OTP_DEMO === 'true';
-
     if (demoOtpEnabled) {
-      return {
-        success: true,
-        message: 'OTP generated successfully',
-        data: { expiresInSeconds: 300, devOtp: otp },
-      };
+      return { success: true, message: 'OTP generated successfully', data: { expiresInSeconds: 300, devOtp: '123456' } };
     }
 
-    try {
-      await this.sendOtpSms(phone, otp);
-    } catch (error) {
-      await this.prisma.legacyOtpChallenge.deleteMany({
-        where: { userId, consumedAt: null },
-      });
-      throw error;
-    }
+    await this.sendGetOTP(phone);
 
-    return {
-      success: true,
-      message: 'OTP sent successfully',
-      data: { expiresInSeconds: 300 },
-    };
+    return { success: true, message: 'OTP sent successfully', data: { expiresInSeconds: 300 } };
   }
 
   // =====================================================
-  // NEW CUSTOMER - VERIFY OTP (LEGACY FLOW)
+  // NEW CUSTOMER - VERIFY OTP
   // =====================================================
 
   async verifyRegisterOtp(phone: string, otp: string) {
@@ -268,54 +233,26 @@ export class AuthService {
       where: { phone: cleanPhone, legacyId: null },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid OTP');
+    if (!user) throw new UnauthorizedException('Invalid Request');
     if (user.isActive) throw new ConflictException('Account is already verified. Please login.');
 
-    const challenge = await this.prisma.legacyOtpChallenge.findFirst({
-      where: {
-        userId: user.id,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-        attempts: { lt: 5 },
-      },
-      orderBy: { createdAt: 'desc' },
+    // GETOTP Verification
+    const demoOtpEnabled = process.env.LEGACY_OTP_DEMO === 'true' || process.env.OTP_DEMO === 'true';
+    const isValid = demoOtpEnabled ? (otp === '123456') : await this.verifyGetOTP(cleanPhone, otp.trim());
+
+    if (!isValid) throw new UnauthorizedException('Invalid or Expired OTP');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isActive: true },
     });
-
-    if (!challenge) throw new UnauthorizedException('OTP expired or invalid. Please request a new OTP.');
-
-    const otpMatches = await bcrypt.compare(otp, challenge.otpHash);
-
-    if (!otpMatches) {
-      await this.prisma.legacyOtpChallenge.update({
-        where: { id: challenge.id },
-        data: { attempts: { increment: 1 } },
-      });
-      throw new UnauthorizedException('Invalid OTP');
-    }
-
-    await this.prisma.$transaction([
-      this.prisma.legacyOtpChallenge.update({
-        where: { id: challenge.id },
-        data: { consumedAt: new Date() },
-      }),
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: { isActive: true },
-      }),
-    ]);
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
 
     return {
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: true,
-        createdAt: user.createdAt,
+        id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, isActive: true, createdAt: user.createdAt,
       },
       ...tokens,
     };
@@ -329,8 +266,7 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user) throw new UnauthorizedException('Invalid email or password');
-    if (!user.isActive) throw new UnauthorizedException('Account is inactive');
+    if (!user || !user.isActive) throw new UnauthorizedException('Invalid email or password');
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) throw new UnauthorizedException('Invalid email or password');
@@ -340,13 +276,7 @@ export class AuthService {
 
     return {
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
+        id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, isActive: user.isActive, createdAt: user.createdAt,
       },
       ...tokens,
     };
@@ -358,59 +288,23 @@ export class AuthService {
 
   async requestLegacyOtp(phone: string) {
     const cleanPhone = phone.trim();
-
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      throw new BadRequestException('Please enter a valid 10-digit mobile number.');
-    }
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) throw new BadRequestException('Please enter a valid 10-digit mobile number.');
 
     const user = await this.prisma.user.findFirst({
       where: { phone: cleanPhone, isActive: true },
       select: { id: true, phone: true },
     });
 
-    if (!user) {
-      return {
-        success: true,
-        message: 'If this mobile number is registered, an OTP has been sent.',
-      };
-    }
-
-    await this.prisma.legacyOtpChallenge.deleteMany({
-      where: { userId: user.id, consumedAt: null },
-    });
-
-    const otp = randomInt(100000, 1000000).toString();
-    const otpHash = await bcrypt.hash(otp, 12);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    await this.prisma.legacyOtpChallenge.create({
-      data: { userId: user.id, otpHash, expiresAt },
-    });
+    if (!user) return { success: true, message: 'If this mobile number is registered, an OTP has been sent.' };
 
     const demoOtpEnabled = process.env.LEGACY_OTP_DEMO === 'true' || process.env.OTP_DEMO === 'true';
-
     if (demoOtpEnabled) {
-      return {
-        success: true,
-        message: 'OTP generated successfully',
-        data: { expiresInSeconds: 300, devOtp: otp },
-      };
+      return { success: true, message: 'OTP generated successfully', data: { expiresInSeconds: 300, devOtp: '123456' } };
     }
 
-    try {
-      await this.sendOtpSms(cleanPhone, otp);
-    } catch (error) {
-      await this.prisma.legacyOtpChallenge.deleteMany({
-        where: { userId: user.id, consumedAt: null },
-      });
-      throw error;
-    }
+    await this.sendGetOTP(cleanPhone);
 
-    return {
-      success: true,
-      message: 'OTP sent successfully',
-      data: { expiresInSeconds: 300 },
-    };
+    return { success: true, message: 'OTP sent successfully', data: { expiresInSeconds: 300 } };
   }
 
   // =====================================================
@@ -422,7 +316,7 @@ export class AuthService {
     const cleanOtp = otp.trim();
 
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) throw new BadRequestException('Invalid mobile number.');
-    if (!/^\d{6}$/.test(cleanOtp)) throw new BadRequestException('Invalid OTP.');
+    if (!/^\d{4,6}$/.test(cleanOtp)) throw new BadRequestException('Please enter a valid OTP.');
 
     const user = await this.prisma.user.findFirst({
       where: { phone: cleanPhone, isActive: true },
@@ -430,46 +324,18 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid OTP.');
 
-    const challenge = await this.prisma.legacyOtpChallenge.findFirst({
-      where: {
-        userId: user.id,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-        attempts: { lt: 5 },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // GETOTP Verification
+    const demoOtpEnabled = process.env.LEGACY_OTP_DEMO === 'true' || process.env.OTP_DEMO === 'true';
+    const isValid = demoOtpEnabled ? (cleanOtp === '123456') : await this.verifyGetOTP(cleanPhone, cleanOtp);
 
-    if (!challenge) throw new UnauthorizedException('OTP expired or invalid. Please request a new OTP.');
-
-    const otpMatches = await bcrypt.compare(cleanOtp, challenge.otpHash);
-
-    if (!otpMatches) {
-      await this.prisma.legacyOtpChallenge.update({
-        where: { id: challenge.id },
-        data: { attempts: { increment: 1 } },
-      });
-      throw new UnauthorizedException('Invalid OTP.');
-    }
-
-    await this.prisma.legacyOtpChallenge.update({
-      where: { id: challenge.id },
-      data: { consumedAt: new Date() },
-    });
+    if (!isValid) throw new UnauthorizedException('OTP expired or invalid. Please request a new OTP.');
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
 
     return {
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+        id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, isActive: user.isActive, createdAt: user.createdAt, updatedAt: user.updatedAt,
       },
       ...tokens,
     };
@@ -493,10 +359,7 @@ export class AuthService {
 
   async refreshTokens(userId: string, refreshToken: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user || !user.isActive || !user.refreshTokenHash) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException('Invalid refresh token');
 
     const tokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
     if (!tokenMatches) throw new UnauthorizedException('Invalid refresh token');
@@ -509,10 +372,7 @@ export class AuthService {
       data: { refreshTokenHash: newRefreshTokenHash },
     });
 
-    if (rotationResult.count !== 1) {
-      throw new UnauthorizedException('Refresh token has already been used');
-    }
-
+    if (rotationResult.count !== 1) throw new UnauthorizedException('Refresh token has already been used');
     return tokens;
   }
 
@@ -524,20 +384,12 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
+        id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true, updatedAt: true,
       },
     });
 
     if (!user) throw new UnauthorizedException('User not found');
     if (!user.isActive) throw new UnauthorizedException('Account is inactive');
-
     return user;
   }
 
@@ -571,14 +423,7 @@ export class AuthService {
         where: { id: userId },
         data: updateData,
         select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
+          id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true, updatedAt: true,
         },
       });
       return user;

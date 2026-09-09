@@ -125,26 +125,18 @@ export async function verifyLegacyOtp(
   const cleanOtp = otp.trim();
 
   if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-    throw new Error(
-      'Please enter a valid 10-digit mobile number.',
-    );
+    throw new Error('Please enter a valid 10-digit mobile number.');
   }
 
-  if (!/^\d{6}$/.test(cleanOtp)) {
-    throw new Error(
-      'Please enter a valid 6-digit OTP.',
-    );
+  if (!/^\d{4,6}$/.test(cleanOtp)) {
+    throw new Error('Please enter a valid OTP.');
   }
 
   return apiRequest<VerifyLegacyOtpResponse>(
     '/auth/legacy/verify-otp',
     {
       method: 'POST',
-
-      body: {
-        phone: cleanPhone,
-        otp: cleanOtp,
-      },
+      body: { phone: cleanPhone, otp: cleanOtp },
     },
   );
 }
@@ -291,26 +283,19 @@ export async function verifyRegisterOtp(
   const cleanOtp = otp.trim();
 
   if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-    throw new Error(
-      'Please enter a valid 10-digit mobile number.',
-    );
+    throw new Error('Please enter a valid 10-digit mobile number.');
   }
 
-  if (!/^\d{6}$/.test(cleanOtp)) {
-    throw new Error(
-      'Please enter a valid 6-digit OTP.',
-    );
+  // YAHAN CHANGE KIYA HAI
+  if (!/^\d{4,6}$/.test(cleanOtp)) {
+    throw new Error('Please enter a valid OTP.');
   }
 
   return apiRequest<VerifyRegisterOtpResponse>(
     '/auth/register/verify-otp',
     {
       method: 'POST',
-
-      body: {
-        phone: cleanPhone,
-        otp: cleanOtp,
-      },
+      body: { phone: cleanPhone, otp: cleanOtp },
     },
   );
 }
@@ -552,33 +537,23 @@ export async function verifyLoginOtp(
   phone: string,
   otp: string,
 ): Promise<VerifyLoginOtpResponse> {
-  const cleanPhone =
-    phone.trim();
-
-  const cleanOtp =
-    otp.trim();
+  const cleanPhone = phone.trim();
+  const cleanOtp = otp.trim();
 
   if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-    throw new Error(
-      'Please enter a valid 10-digit mobile number.',
-    );
+    throw new Error('Please enter a valid 10-digit mobile number.');
   }
 
-  if (!/^\d{6}$/.test(cleanOtp)) {
-    throw new Error(
-      'Please enter a valid 6-digit OTP.',
-    );
+  // YAHAN CHANGE KIYA HAI
+  if (!/^\d{4,6}$/.test(cleanOtp)) {
+    throw new Error('Please enter a valid OTP.');
   }
 
   return apiRequest<VerifyLoginOtpResponse>(
     '/auth/login/verify-otp',
     {
       method: 'POST',
-
-      body: {
-        phone: cleanPhone,
-        otp: cleanOtp,
-      },
+      body: { phone: cleanPhone, otp: cleanOtp },
     },
   );
 }

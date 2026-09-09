@@ -15,8 +15,8 @@ export class VerifyLegacyOtpDto {
 
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\d{6}$/, {
-    message: 'OTP must be a 6-digit number',
+  @Matches(/^\d{4,6}$/, {
+    message: 'OTP must be a valid 4 to 6-digit number', 
   })
   otp: string;
 }
