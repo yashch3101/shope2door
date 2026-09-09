@@ -13,16 +13,20 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Ionicons,
   MaterialIcons,
 } from '@expo/vector-icons';
 
-import { MotiView } from 'moti';
+import { MotiView, AnimatePresence } from 'moti';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 import {
   useRouter,
@@ -75,14 +79,23 @@ import RazorpayCheckout from 'react-native-razorpay';
 export default function CheckoutScreen() {
   const router = useRouter();
 
+  const insets = useSafeAreaInsets();
+
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
+
   const params = useLocalSearchParams<{
     addressId?: string | string[];
   }>();
 
-  /*
-   * expo-router params can sometimes be string[]
-   * so normalize it into a single string.
-   */
   const selectedAddressIdParam = Array.isArray(
     params.addressId,
   )
@@ -129,6 +142,8 @@ export default function CheckoutScreen() {
     setPlacingOrder,
   ] = useState(false);
 
+  const [showBillModal, setShowBillModal] = useState(false);
+
   const [
     error,
     setError,
@@ -165,6 +180,12 @@ export default function CheckoutScreen() {
   ] = useState(0);
 
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  
+  // NAYE STATES DISTANCE CALCULATION KE LIYE
+  const [deliverySlabs, setDeliverySlabs] = useState<any[]>([]);
+  const [storeLocation, setStoreLocation] = useState<{lat: number, lon: number} | null>(null);
+
+  const IMAGE_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
   const openCouponModal = async () => {
     try {
@@ -189,11 +210,10 @@ export default function CheckoutScreen() {
         err,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Coupons',
-        err instanceof Error
-          ? err.message
-          : 'Unable to load coupons.',
+        err instanceof Error ? err.message : 'Unable to load coupons.',
+        'error'
       );
     } finally {
       setCouponLoading(false);
@@ -257,23 +277,26 @@ export default function CheckoutScreen() {
 
         setCart(fetchedCart);
         setAddresses(fetchedAddresses);
+        
+        try {
+          const locResponse = await fetch(`${IMAGE_BASE_URL}/admin/location`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          });
+          const locData = await locResponse.json();
+          if (locData.success) {
+             setStoreLocation({
+                lat: Number(locData.storeLocation?.storeLatitude) || 29.8543,
+                lon: Number(locData.storeLocation?.storeLongitude) || 77.8880
+             });
+             setDeliverySlabs(locData.slabs || []);
+          }
+        } catch (e) {
+          console.log('Failed to fetch location slabs:', e);
+        }
 
-
-        // =================================================
         // SELECT ADDRESS
-        // =================================================
-        //
-        // Priority:
-        //
-        // 1. addressId received from Delivery Address page
-        // 2. default address
-        // 3. first address
-        // 4. null
-        //
-        // This fixes the main issue where checkout was
-        // always selecting the default address.
-        // =================================================
-
         let addressToSelect:
           | Address
           | null = null;
@@ -288,7 +311,6 @@ export default function CheckoutScreen() {
             ) ?? null;
         }
 
-
         if (!addressToSelect) {
           addressToSelect =
             fetchedAddresses.find(
@@ -299,15 +321,9 @@ export default function CheckoutScreen() {
             null;
         }
 
-
         setSelectedAddress(
           addressToSelect,
         );
-
-
-        // =================================================
-        // EMPTY CART CHECK
-        // =================================================
 
         if (
           !fetchedCart ||
@@ -337,36 +353,14 @@ export default function CheckoutScreen() {
     [selectedAddressIdParam],
   );
 
-
-  // =====================================================
-  // LOAD WHEN SCREEN OPENS / COMES BACK INTO FOCUS
-  // =====================================================
-  //
-  // useFocusEffect is important here.
-  //
-  // User goes:
-  //
-  // Checkout
-  //   ↓
-  // Delivery Address
-  //   ↓
-  // Select address
-  //   ↓
-  // Checkout
-  //
-  // When checkout becomes active again, we reload the
-  // address list and selected address.
-  // =====================================================
-
   useFocusEffect(
     useCallback(() => {
       loadCheckoutData();
     }, [loadCheckoutData]),
   );
 
-
   // =====================================================
-  // TOTALS
+  // TOTALS & DYNAMIC DELIVERY CALCULATION
   // =====================================================
 
   const totalItems =
@@ -378,21 +372,62 @@ export default function CheckoutScreen() {
   const totalSavings =
     cart?.summary.totalSavings ?? 0;
 
+  const isStoreClosed = appSettings?.store?.isClosed ?? false;
+  const storeClosedMessage = appSettings?.store?.closedMessage ?? 'We are currently closed for orders.';
 
-  /*
-   * Delivery fee is currently FREE.
-   *
-   * Final order amount is still calculated and validated
-   * by backend OrderService.
-   */
+  // 🔥 YAHAN HAVERSINE FORMULA LAGA HAI (Just like backend)
+  let calculatedDeliveryFee = 15; // default fallback
+  let distanceInKm = 0;
+
+  console.log("CHECKOUT DEBUG -> Selected Address:", selectedAddress);
+  console.log("CHECKOUT DEBUG -> Store Location:", storeLocation);
+
+  if (selectedAddress?.latitude && selectedAddress?.longitude && storeLocation) {
+    const userLat = Number(selectedAddress.latitude);
+    const userLon = Number(selectedAddress.longitude);
+    const STORE_LAT = storeLocation.lat;
+    const STORE_LON = storeLocation.lon;
+
+    const R = 6371; // Earth Radius in KM
+    const dLat = (userLat - STORE_LAT) * (Math.PI / 180);
+    const dLon = (userLon - STORE_LON) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(STORE_LAT * (Math.PI / 180)) * Math.cos(userLat * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    distanceInKm = R * c;
+
+    console.log("CHECKOUT DEBUG -> Calculated Distance (KM):", distanceInKm);
+
+    if (deliverySlabs.length > 0) {
+      const matchedSlab = deliverySlabs.find(
+        (slab) => distanceInKm >= Number(slab.minDistance) && distanceInKm <= Number(slab.maxDistance)
+      );
+      if (matchedSlab) {
+        calculatedDeliveryFee = Number(matchedSlab.charge);
+      } else {
+        calculatedDeliveryFee = Number(deliverySlabs[deliverySlabs.length - 1].charge);
+      }
+    }
+  } else {
+    console.log("CHECKOUT DEBUG -> Latitude/Longitude is MISSING or 0");
+  }
 
   // =====================================================
-  // DYNAMIC DELIVERY FEE FROM SETTINGS
+  // OVERRIDE: FREE DELIVERY CHECK
   // =====================================================
-  const dynamicDeliveryCharge = Number(appSettings?.delivery?.deliveryCharge) || 40;
-  const dynamicFreeAbove = Number(appSettings?.delivery?.freeDeliveryAbove) || 200;
+  const freeDeliveryThreshold = Number((appSettings?.delivery as any)?.freeDeliveryAbove) || 200;
+  
+  if (subtotal >= freeDeliveryThreshold) {
+    calculatedDeliveryFee = 0;
+    console.log("CHECKOUT DEBUG -> Free Delivery Threshold Reached! Fee is 0.");
+  }
+  
+  console.log("CHECKOUT DEBUG -> Final Delivery Fee:", calculatedDeliveryFee);
 
-  const deliveryFee = subtotal >= dynamicFreeAbove || subtotal === 0 ? 0 : dynamicDeliveryCharge;
+  // If subtotal is 0, fee is 0. Else use dynamic distance-based/free charge.
+  const deliveryFee = subtotal === 0 ? 0 : calculatedDeliveryFee;
   const handlingFee = totalItems > 0 ? 5 : 0;
 
   const grandTotal = Math.max(
@@ -462,9 +497,10 @@ export default function CheckoutScreen() {
 
       setShowCouponModal(false);
 
-      Alert.alert(
+      showCustomAlert(
         'Coupon Applied',
         `${coupon.code} applied successfully.\nYou saved ₹${discount.toFixed(2)}.`,
+        'success'
       );
     } catch (err) {
       console.error(
@@ -472,11 +508,10 @@ export default function CheckoutScreen() {
         err,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Coupon Not Applied',
-        err instanceof Error
-          ? err.message
-          : 'Unable to apply this coupon.',
+        err instanceof Error ? err.message : 'Unable to apply this coupon.',
+        'error'
       );
     } finally {
       setCouponApplying(false);
@@ -500,66 +535,29 @@ export default function CheckoutScreen() {
         return;
       }
 
-
-      // -----------------------------------------------
-      // CART VALIDATION
-      // -----------------------------------------------
-
       if (
         !cart ||
         cart.items.length === 0
       ) {
-        Alert.alert(
+        showCustomAlert(
           'Cart Empty',
           'Please add products to your cart before checkout.',
+          'warning'
         );
-
         return;
       }
-
-
-      // -----------------------------------------------
-      // ADDRESS VALIDATION
-      // -----------------------------------------------
 
       if (!selectedAddress) {
-        Alert.alert(
+        showCustomAlert(
           'Delivery Address',
           'Please select a delivery address before placing your order.',
-          [
-            {
-              text: 'Select Address',
-              onPress:
-                handleChangeAddress,
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-          ],
+          'warning'
         );
-
         return;
       }
-
 
       try {
         setPlacingOrder(true);
-
-
-        // =================================================
-        // STEP 1
-        // CREATE ORDER
-        // =================================================
-
-        /*
-         * IMPORTANT:
-         *
-         * Actual database address ID is sent here.
-         *
-         * Backend validates that this address belongs
-         * to the authenticated user.
-         */
 
         const orderResponse =
           await createOrder({
@@ -574,22 +572,14 @@ export default function CheckoutScreen() {
               : {}),
           });
 
-
         const order =
           orderResponse.data;
-
 
         if (!order?.id) {
           throw new Error(
             'Order creation failed',
           );
         }
-
-
-        // =================================================
-        // STEP 2
-        // COD
-        // =================================================
 
         if (
           selectedPayment === 'COD'
@@ -599,21 +589,9 @@ export default function CheckoutScreen() {
             paymentMethod: 'COD',
           });
 
-          // Redirect to New Success Screen
           router.replace({ pathname: '/order-success', params: { orderId: order.id } });
           return;
         }
-
-
-        // =================================================
-        // STEP 3
-        // ONLINE PAYMENT
-        // =================================================
-        //
-        // UPI + CARD both map to ONLINE
-        // because backend PaymentMethod enum
-        // contains only COD and ONLINE.
-        // =================================================
 
         const paymentResponse =
           await initiatePayment({
@@ -621,20 +599,8 @@ export default function CheckoutScreen() {
             paymentMethod: 'ONLINE',
           });
 
-
         const payment =
           paymentResponse.data;
-
-
-        console.log(
-          'Payment initiation response:',
-          payment,
-        );
-
-
-        // =================================================
-        // RAZORPAY SDK STEP
-        // =================================================
 
         if (
           !payment.razorpayOrderId ||
@@ -644,12 +610,6 @@ export default function CheckoutScreen() {
             'Payment gateway order was not created correctly.',
           );
         }
-
-
-        // =================================================
-        // STEP 4
-        // OPEN RAZORPAY CHECKOUT
-        // =================================================
 
         if (!currentUser) {
           throw new Error(
@@ -701,27 +661,10 @@ export default function CheckoutScreen() {
           },
         };
 
-        console.log(
-          'Opening Razorpay Checkout:',
-          {
-            orderId:
-              payment.razorpayOrderId,
-            amount:
-              payment.amount,
-            currency:
-              payment.currency,
-          },
-        );
-
         const razorpayResult =
           await RazorpayCheckout.open(
             razorpayOptions,
           );
-
-        console.log(
-          'Razorpay success:',
-          razorpayResult,
-        );
 
         if (
           !razorpayResult?.razorpay_order_id ||
@@ -732,11 +675,6 @@ export default function CheckoutScreen() {
             'Payment completed but payment details could not be verified.',
           );
         }
-
-        // =================================================
-        // STEP 5
-        // VERIFY PAYMENT ON BACKEND
-        // =================================================
 
         const verificationResponse =
           await verifyPayment({
@@ -752,11 +690,6 @@ export default function CheckoutScreen() {
               razorpayResult.razorpay_signature,
           });
 
-        console.log(
-          'Payment verification response:',
-          verificationResponse,
-        );
-
         if (
           !verificationResponse.success
         ) {
@@ -765,11 +698,6 @@ export default function CheckoutScreen() {
               'Payment verification failed.',
           );
         }
-
-        // =================================================
-        // STEP 6
-        // PAYMENT SUCCESS
-        // =================================================
 
         Alert.alert(
           'Payment Successful',
@@ -799,7 +727,6 @@ export default function CheckoutScreen() {
             ? err.message
             : 'Unable to place your order. Please try again.';
 
-        // Razorpay checkout cancelled by user
         const razorpayError =
           err as {
             code?: string | number;
@@ -814,17 +741,18 @@ export default function CheckoutScreen() {
             .includes('cancel');
 
         if (isRazorpayCancelled) {
-          Alert.alert(
+          showCustomAlert(
             'Payment Cancelled',
             'You cancelled the payment. Your order has not been confirmed.',
+            'warning'
           );
-
           return;
         }
 
-        Alert.alert(
+        showCustomAlert(
           'Order Failed',
           errorMessage,
+          'error'
         );
       } finally {
         setPlacingOrder(false);
@@ -1436,7 +1364,7 @@ export default function CheckoutScreen() {
                   styles.billText
                 }
               >
-                Delivery Fee
+                Delivery Fee (Distance Based)
               </Text>
 
 
@@ -1740,35 +1668,20 @@ export default function CheckoutScreen() {
           type: 'spring',
           delay: 500,
         }}
-        style={
-          styles.checkoutBar
-        }
+        style={[
+          styles.checkoutBar,
+          { paddingBottom: Math.max(insets.bottom + 10, 20) }
+        ]}
       >
 
-        <View
-          style={
-            styles.checkoutInfo
-          }
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.checkoutInfo}
+          onPress={() => setShowBillModal(true)}
         >
-
-          <Text
-            style={
-              styles.checkoutTotal
-            }
-          >
-            ₹{grandTotal.toFixed(2)}
-          </Text>
-
-
-          <Text
-            style={
-              styles.checkoutSubText
-            }
-          >
-            VIEW DETAILED BILL
-          </Text>
-
-        </View>
+          <Text style={styles.checkoutTotal}>₹{grandTotal.toFixed(2)}</Text>
+          <Text style={styles.checkoutSubText}>VIEW DETAILED BILL</Text>
+        </TouchableOpacity>
 
 
         <TouchableOpacity
@@ -2068,6 +1981,103 @@ export default function CheckoutScreen() {
     </View>
   </View>
 )}
+
+{/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
+
+      {/* DETAILED BILL MODAL */}
+      <AnimatePresence>
+        {showBillModal && (
+          <View style={styles.couponOverlay}>
+            <MotiView 
+              from={{ translateY: 400, opacity: 0 }}
+              animate={{ translateY: 0, opacity: 1 }}
+              exit={{ translateY: 400, opacity: 0 }}
+              style={[styles.couponModal, { paddingBottom: insets.bottom + 20 }]}
+            >
+              <View style={styles.couponModalHeader}>
+                <Text style={styles.couponModalTitle}>Detailed Bill</Text>
+                <TouchableOpacity onPress={() => setShowBillModal(false)}>
+                  <Ionicons name="close" size={26} color="#374151" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ marginTop: 10 }}>
+                <View style={styles.billRow}>
+                  <Text style={styles.billText}>Item Total</Text>
+                  <Text style={styles.billValue}>₹{subtotal.toFixed(2)}</Text>
+                </View>
+                {totalSavings > 0 && (
+                  <View style={styles.billRow}>
+                    <Text style={styles.billText}>Product Savings</Text>
+                    <Text style={[styles.billValue, { color: '#10B981' }]}>-₹{totalSavings.toFixed(2)}</Text>
+                  </View>
+                )}
+                {couponDiscount > 0 && (
+                  <View style={styles.billRow}>
+                    <Text style={styles.billText}>Coupon Discount</Text>
+                    <Text style={[styles.billValue, { color: '#10B981' }]}>-₹{couponDiscount.toFixed(2)}</Text>
+                  </View>
+                )}
+                <View style={styles.billRow}>
+                  <Text style={styles.billText}>Delivery Fee</Text>
+                  <Text style={[styles.billValue, deliveryFee === 0 && { color: '#10B981' }]}>
+                    {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                  </Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billText}>Handling Fee</Text>
+                  <Text style={styles.billValue}>₹{handlingFee}</Text>
+                </View>
+
+                <View style={styles.divider} />
+                
+                <View style={styles.grandTotalRow}>
+                  <Text style={styles.grandTotalText}>To Pay</Text>
+                  <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(2)}</Text>
+                </View>
+              </View>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
 
     </SafeAreaView>
   );
@@ -2716,4 +2726,15 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     backgroundColor: '#F3F4F6',
   },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

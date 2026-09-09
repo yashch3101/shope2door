@@ -12,12 +12,10 @@ import {
   LogBox,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { SvgXml } from 'react-native-svg';
 import { MotiView, MotiText, AnimatePresence } from 'moti';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -30,8 +28,6 @@ import {
 } from 'expo-speech-recognition';
 
 import {
-  login,
-  register,
   getMe,
   requestRegisterOtp,
   verifyRegisterOtp,
@@ -87,31 +83,6 @@ let isAppInitialized = false;
 
 // --- DUMMY DATA ---
 const SEARCH_WORDS = ['"Snacks"', '"Cold Drinks"', '"Fresh Veggies"', '"Dairy Products"', '"Chocolates"'];
-const CATEGORIES = [
-  { id: '1', name: 'Gift & Hampers', icon: '🎁' },
-  { id: '2', name: 'Listing in process', icon: '⏳' },
-  { id: '3', name: 'South Culture', icon: '🍛' },
-  { id: '4', name: 'Momos', icon: '🥟' },
-  { id: '5', name: 'Hungry Villa', icon: '🍔' },
-  { id: '6', name: 'Jewellery', icon: '💍' },
-  { id: '7', name: 'Disposal', icon: '🍽️' },
-  { id: '8', name: 'Sweets', icon: '🍩' },
-];
-const ESSENTIALS = [
-  { id: '1', name: 'Fortune Refined Soyabean...', weight: '750g', price: '₹155', discount: '0% OFF', type: 'Add to Cart' },
-  { id: '2', name: 'Moong Dal (Dhuli)', weight: '250g', price: '₹30', discount: '0% OFF', type: '3 Options' },
-  { id: '3', name: 'Chole (Chick Peas)', weight: '250g', price: '₹35', discount: '0% OFF', type: '3 Options' },
-];
-const BEST_SELLING = [
-  { id: '1', name: 'Monster Zero Sugar Ultra...', weight: '350ml', price: '₹120', discount: '4% OFF', type: 'Add to Cart' },
-  { id: '2', name: 'Uttam Sugar Sulphurless...', weight: '1kg', price: '₹75', discount: '0% OFF', type: 'Add to Cart' },
-  { id: '3', name: 'Cadbury Temptations...', weight: '70g', price: '₹120', discount: '0% OFF', type: 'Add to Cart' },
-];
-const HOT_DEALS = [
-  { id: '1', name: 'Unibic Cashew Badam...', weight: '450g', price: '₹140', discount: '0% OFF', type: 'Add to Cart' },
-  { id: '2', name: 'Red Bull Energy Drink', weight: '250ml', price: '₹125', discount: '0% OFF', type: 'Add to Cart' },
-  { id: '3', name: 'Coca-Cola Soft Drink', weight: '750ml', price: '₹40', discount: '0% OFF', type: '3 Options' },
-];
 
 type ProductItem = {
   id: string;
@@ -127,11 +98,10 @@ function isValidIconUrl(icon?: string | null): boolean {
   if (!icon) {
     return false;
   }
-
   return /^https?:\/\/.+/i.test(icon.trim());
 }
 
-const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
 const mapProductToCard = (
   product: Product,
@@ -188,7 +158,6 @@ const ProductCard = ({
 }) => {
 
   const router = useRouter();
-  console.log("CHECK IMAGE URL ->", product.name, " : ", product.image);
 
   return (
     <MotiView 
@@ -241,7 +210,8 @@ const ProductCard = ({
         {product.image ? (
           <Image
             source={{ 
-              uri: `${product.image}?ngrok-skip-browser-warning=true` 
+              uri: product.image,
+              headers: { 'ngrok-skip-browser-warning': 'true' }
             }}
             style={{ width: '100%', height: '100%', borderRadius: 12 }}
             resizeMode="cover"
@@ -305,21 +275,17 @@ const AnimatedSplashScreen = () => (
 
 export default function App() {
   const router = useRouter();
+
+  const insets = useSafeAreaInsets();
   
   const [showSplash, setShowSplash] = useState(!isAppInitialized);
   const baseDelay = !isAppInitialized ? 2500 : 0;
   const bannerIndexRef = useRef(0);
   const [searchText, setSearchText] = useState('');
 
-  const [isVoiceSearching, setIsVoiceSearching] =
-    useState(false);
-
-  const [locationName, setLocationName] =
-    useState('Roorkee');
-
-  const [locationLoading, setLocationLoading] =
-    useState(false);
-
+  const [isVoiceSearching, setIsVoiceSearching] = useState(false);
+  const [locationName, setLocationName] = useState('Roorkee');
+  const [locationLoading, setLocationLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   // AUTH STATES
@@ -332,20 +298,30 @@ export default function App() {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
-  const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(
-    null,
-  );
+  const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
 
   const [registerOtpSent, setRegisterOtpSent] = useState(false);
   const [registerOtpLoading, setRegisterOtpLoading] = useState(false);
   const [registerOtp, setRegisterOtp] = useState('');
-  const [registerOtpExpiresIn, setRegisterOtpExpiresIn] =
-    useState<number | null>(null);
+  const [registerOtpExpiresIn, setRegisterOtpExpiresIn] = useState<number | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  // =====================================================
+  // CUSTOM ALERT STATE
+  // =====================================================
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoading, setBannersLoading] = useState(true);
-
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
@@ -370,36 +346,16 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [regPhone, setRegPhone] = useState('');
 
-  const [categories, setCategories] =
-    useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  const [categoriesLoading, setCategoriesLoading] =
-    useState(true);
-
-  const [wishlistState, setWishlistState] = useState<
-    Record<string, boolean>
-  >({});
-
-  const [wishlistLoading, setWishlistLoading] = useState<
-    Record<string, boolean>
-  >({});
-
-  const [cartLoading, setCartLoading] = useState<
-    Record<string, boolean>
-  >({});
-
+  const [wishlistState, setWishlistState] = useState<Record<string, boolean>>({});
+  const [wishlistLoading, setWishlistLoading] = useState<Record<string, boolean>>({});
+  const [cartLoading, setCartLoading] = useState<Record<string, boolean>>({});
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-
-  const [
-    coupons,
-    setCoupons,
-  ] = useState<Coupon[]>([]);
-
-  const [
-    couponsLoading,
-    setCouponsLoading,
-  ] = useState(true);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(true);
 
   // =====================================================
   // VOICE SEARCH EVENTS
@@ -414,30 +370,19 @@ export default function App() {
   });
 
   useSpeechRecognitionEvent('result', event => {
-    const transcript =
-      event.results?.[0]?.transcript?.trim() || '';
-
+    const transcript = event.results?.[0]?.transcript?.trim() || '';
     if (transcript) {
-      // Whatever user speaks gets written
-      // directly into the search box.
       setSearchText(transcript);
     }
   });
 
   useSpeechRecognitionEvent('error', event => {
     setIsVoiceSearching(false);
-
-    console.log(
-      'Speech recognition error:',
-      event.error,
-      event.message,
-    );
-
     if (event.error !== 'aborted') {
-      Alert.alert(
+      showCustomAlert(
         'Voice Search',
-        event.message ||
-          'Unable to recognize your voice.',
+        event.message || 'Unable to recognize your voice.',
+        'error'
       );
     }
   });
@@ -452,9 +397,7 @@ export default function App() {
     }
   };
 
-  const handleWishlistToggle = async (
-    productId: string,
-  ) => {
+  const handleWishlistToggle = async (productId: string) => {
     if (!requireLogin()) {
       return;
     }
@@ -463,53 +406,32 @@ export default function App() {
       return;
     }
 
-    const currentlyInWishlist =
-      wishlistState[productId] === true;
+    const currentlyInWishlist = wishlistState[productId] === true;
 
     try {
-      setWishlistLoading(prev => ({
-        ...prev,
-        [productId]: true,
-      }));
+      setWishlistLoading(prev => ({ ...prev, [productId]: true }));
 
       if (currentlyInWishlist) {
         await removeFromWishlist(productId);
-
-        setWishlistState(prev => ({
-          ...prev,
-          [productId]: false,
-        }));
+        setWishlistState(prev => ({ ...prev, [productId]: false }));
       } else {
         await addToWishlist(productId);
-
-        setWishlistState(prev => ({
-          ...prev,
-          [productId]: true,
-        }));
+        setWishlistState(prev => ({ ...prev, [productId]: true }));
       }
     } catch (error) {
-      console.error(
-        'Wishlist update failed:',
-        error,
-      );
-
-      Alert.alert(
+      showCustomAlert(
         'Wishlist',
-        error instanceof Error
-          ? error.message
-          : 'Unable to update wishlist.',
+        error instanceof Error ? error.message : 'Unable to update wishlist.',
+        'error'
       );
     } finally {
-      setWishlistLoading(prev => ({
-        ...prev,
-        [productId]: false,
-      }));
+      setWishlistLoading(prev => ({ ...prev, [productId]: false }));
     }
   };
 
   const handleAddToCart = async (productId: string) => {
     if (appSettings?.store?.isClosed) {
-      Alert.alert('Store Closed', appSettings.store.closedMessage || 'We are currently closed for orders.');
+      showCustomAlert('Store Closed', appSettings.store.closedMessage || 'We are currently closed for orders.', 'warning');
       return;
     }
 
@@ -522,40 +444,26 @@ export default function App() {
     }
 
     try {
-      setCartLoading(prev => ({
-        ...prev,
-        [productId]: true,
-      }));
-
+      setCartLoading(prev => ({ ...prev, [productId]: true }));
       await addToCart(productId, 1);
-
-      Alert.alert(
+      showCustomAlert(
         'Added to Cart',
         'Product has been added to your cart.',
+        'success'
       );
     } catch (error) {
-      console.error(
-        'Failed to add product to cart:',
-        error,
-      );
-
-      Alert.alert(
+      showCustomAlert(
         'Unable to Add',
-        error instanceof Error
-          ? error.message
-          : 'Unable to add product to cart. Please try again.',
+        error instanceof Error ? error.message : 'Unable to add product to cart. Please try again.',
+        'error'
       );
     } finally {
-      setCartLoading(prev => ({
-        ...prev,
-        [productId]: false,
-      }));
+      setCartLoading(prev => ({ ...prev, [productId]: false }));
     }
   };
 
   const handleAuthSubmit = async () => {
     if (isSubmitting || registerOtpLoading) return;
-
     setAuthError('');
 
     if (authMode !== 'register') {
@@ -572,28 +480,17 @@ export default function App() {
     }
 
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAuthError(
-        'Please enter a valid 10-digit mobile number.',
-      );
+      setAuthError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
     if (!cleanEmail || !password) {
-      setAuthError(
-        'Please enter email and password.',
-      );
+      setAuthError('Please enter email and password.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-
-      /*
-      * IMPORTANT:
-      * Registration OTP must be requested BEFORE
-      * creating the actual account.
-      */
-
       const response = await requestRegisterOtp({
         name: cleanName,
         phone: cleanPhone,
@@ -605,29 +502,24 @@ export default function App() {
       setRegisterOtp('');
 
       if (response.data?.expiresInSeconds) {
-        setRegisterOtpExpiresIn(
-          response.data.expiresInSeconds,
-        );
+        setRegisterOtpExpiresIn(response.data.expiresInSeconds);
       }
 
       if (response.data?.devOtp) {
-        Alert.alert(
+        showCustomAlert(
           'Development OTP',
           `Your OTP is ${response.data.devOtp}`,
+          'info'
         );
       } else {
-        Alert.alert(
+        showCustomAlert(
           'OTP Sent',
-          response.message ||
-            'OTP sent successfully.',
+          response.message || 'OTP sent successfully.',
+          'success'
         );
       }
     } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to send OTP. Please try again.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'Unable to send OTP. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -638,16 +530,12 @@ export default function App() {
     const cleanOtp = registerOtp.trim();
 
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAuthError(
-        'Please enter a valid 10-digit mobile number.',
-      );
+      setAuthError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
     if (!/^\d{6}$/.test(cleanOtp)) {
-      setAuthError(
-        'Please enter the 6-digit OTP.',
-      );
+      setAuthError('Please enter the 6-digit OTP.');
       return;
     }
 
@@ -655,33 +543,16 @@ export default function App() {
       setRegisterOtpLoading(true);
       setAuthError('');
 
-      const response =
-        await verifyRegisterOtp(
-          cleanPhone,
-          cleanOtp,
-        );
+      const response = await verifyRegisterOtp(cleanPhone, cleanOtp);
 
-      const {
-        accessToken,
-        refreshToken,
-        user,
-      } = response.data;
+      const { accessToken, refreshToken, user } = response.data;
 
-      await saveTokens(
-        accessToken,
-        refreshToken,
-      );
+      await saveTokens(accessToken, refreshToken);
 
-      setUserName(
-        user.name
-          ? user.name.split(' ')[0]
-          : 'User',
-      );
-
+      setUserName(user.name ? user.name.split(' ')[0] : 'User');
       setRegisterOtp('');
       setRegisterOtpSent(false);
       setRegisterOtpExpiresIn(null);
-
       setAuthSuccess(true);
 
       setTimeout(() => {
@@ -690,216 +561,111 @@ export default function App() {
         setShowAuthModal(false);
       }, 1500);
     } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? error.message
-          : 'Invalid or expired OTP.',
-      );
-
-      Alert.alert(
-        'Registration Failed',
-        error instanceof Error
-          ? error.message
-          : 'Invalid or expired OTP.',
-      );
+      const msg = error instanceof Error ? error.message : 'Invalid or expired OTP.';
+      setAuthError(msg);
+      showCustomAlert('Registration Failed', msg, 'error');
     } finally {
       setRegisterOtpLoading(false);
     }
   };
 
+  const handleSendOtp = async () => {
+    const cleanPhone = phone.trim();
 
-const handleSendOtp = async () => {
-  const cleanPhone =
-    phone.trim();
-
-  if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-    Alert.alert(
-      'Invalid mobile number',
-      'Please enter a valid 10-digit mobile number.',
-    );
-    return;
-  }
-
-  try {
-    setOtpLoading(true);
-    setAuthError('');
-
-    const response =
-      await requestLoginOtp(
-        cleanPhone,
-      );
-
-    console.log(
-      'LOGIN OTP RESPONSE:',
-      response,
-    );
-
-    setOtp('');
-    setOtpSent(true);
-
-    if (
-      response.data?.expiresInSeconds
-    ) {
-      setOtpExpiresIn(
-        response.data.expiresInSeconds,
-      );
-    } else {
-      setOtpExpiresIn(300);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      showCustomAlert('Invalid mobile number', 'Please enter a valid 10-digit mobile number.', 'error');
+      return;
     }
 
-    if (response.data?.devOtp) {
-      Alert.alert(
-        'Development OTP',
-        `Your OTP is ${response.data.devOtp}`,
-      );
-    } else {
-      Alert.alert(
-        'OTP Sent',
-        response.message ||
-          'OTP sent successfully.',
-      );
+    try {
+      setOtpLoading(true);
+      setAuthError('');
+
+      const response = await requestLoginOtp(cleanPhone);
+
+      setOtp('');
+      setOtpSent(true);
+
+      if (response.data?.expiresInSeconds) {
+        setOtpExpiresIn(response.data.expiresInSeconds);
+      } else {
+        setOtpExpiresIn(300);
+      }
+
+      if (response.data?.devOtp) {
+        showCustomAlert('Development OTP', `Your OTP is ${response.data.devOtp}`, 'info');
+      } else {
+        showCustomAlert('OTP Sent', response.message || 'OTP sent successfully.', 'success');
+      }
+    } catch (error: any) {
+      const message = error?.message || 'Unable to send OTP. Please try again.';
+      setAuthError(message);
+      showCustomAlert('Unable to send OTP', message, 'error');
+    } finally {
+      setOtpLoading(false);
     }
-  } catch (error: any) {
-    console.error(
-      'Login OTP request failed:',
-      error,
-    );
+  };
 
-    const message =
-      error?.message ||
-      'Unable to send OTP. Please try again.';
+  const handleVerifyOtp = async () => {
+    const cleanPhone = phone.trim();
+    const cleanOtp = otp.trim();
 
-    setAuthError(message);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      showCustomAlert('Invalid mobile number', 'Please enter a valid 10-digit mobile number.', 'error');
+      return;
+    }
 
-    Alert.alert(
-      'Unable to send OTP',
-      message,
-    );
-  } finally {
-    setOtpLoading(false);
-  }
-};
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      showCustomAlert('Invalid OTP', 'Please enter the 6-digit OTP.', 'error');
+      return;
+    }
 
-const handleVerifyOtp = async () => {
-  const cleanPhone =
-    phone.trim();
+    try {
+      setOtpLoading(true);
+      setAuthError('');
 
-  const cleanOtp =
-    otp.trim();
+      const response = await verifyLoginOtp(cleanPhone, cleanOtp);
+      const { accessToken, refreshToken, user } = response.data;
 
-  if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-    Alert.alert(
-      'Invalid mobile number',
-      'Please enter a valid 10-digit mobile number.',
-    );
-    return;
-  }
+      await saveTokens(accessToken, refreshToken);
 
-  if (!/^\d{6}$/.test(cleanOtp)) {
-    Alert.alert(
-      'Invalid OTP',
-      'Please enter the 6-digit OTP.',
-    );
-    return;
-  }
+      setUserName(user.name ? user.name.split(' ')[0] : 'User');
+      setOtp('');
+      setOtpSent(false);
+      setOtpExpiresIn(null);
+      setAuthSuccess(true);
 
-  try {
-    setOtpLoading(true);
-    setAuthError('');
-
-    const response =
-      await verifyLoginOtp(
-        cleanPhone,
-        cleanOtp,
-      );
-
-    console.log(
-      'LOGIN OTP VERIFY RESPONSE:',
-      response,
-    );
-
-    const {
-      accessToken,
-      refreshToken,
-      user,
-    } = response.data;
-
-    // -----------------------------------------------
-    // SAVE SHOP2DOOR SESSION
-    // -----------------------------------------------
-
-    await saveTokens(
-      accessToken,
-      refreshToken,
-    );
-
-    // -----------------------------------------------
-    // UPDATE UI
-    // -----------------------------------------------
-
-    setUserName(
-      user.name
-        ? user.name.split(' ')[0]
-        : 'User',
-    );
-
-    setOtp('');
-    setOtpSent(false);
-    setOtpExpiresIn(null);
-
-    setAuthSuccess(true);
-
-    setTimeout(() => {
-      setIsLoggedIn(true);
-      setAuthSuccess(false);
-      setShowAuthModal(false);
-    }, 1500);
-  } catch (error: any) {
-    console.error(
-      'Login OTP verification failed:',
-      error,
-    );
-
-    const message =
-      error?.message ||
-      'Invalid or expired OTP.';
-
-    setAuthError(message);
-
-    Alert.alert(
-      'OTP Verification Failed',
-      message,
-    );
-  } finally {
-    setOtpLoading(false);
-  }
-};
+      setTimeout(() => {
+        setIsLoggedIn(true);
+        setAuthSuccess(false);
+        setShowAuthModal(false);
+      }, 1500);
+    } catch (error: any) {
+      const message = error?.message || 'Invalid or expired OTP.';
+      setAuthError(message);
+      showCustomAlert('OTP Verification Failed', message, 'error');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const accessToken = await getAccessToken();
-
         if (!accessToken) {
           return;
         }
-
         const response = await getMe(accessToken);
-
         if (response.success && response.data) {
           setIsLoggedIn(true);
-          setUserName(
-            response.data.name
-              ? response.data.name.split(' ')[0]
-              : 'User',
-          );
+          setUserName(response.data.name ? response.data.name.split(' ')[0] : 'User');
         }
       } catch {
         await clearTokens();
         setIsLoggedIn(false);
       }
     };
-
     restoreSession();
   }, []);
 
@@ -912,13 +678,11 @@ const handleVerifyOtp = async () => {
           setBanners(Array.isArray(response.data) ? response.data : []);
         }
       } catch (error) {
-        console.log('Failed to load banners:', error);
         setBanners([]);
       } finally {
         setBannersLoading(false);
       }
     };
-
     loadBanners();
   }, []);
 
@@ -928,27 +692,17 @@ const handleVerifyOtp = async () => {
         setWishlistState({});
         return;
       }
-
       try {
         const response = await getWishlist();
-
         const states: Record<string, boolean> = {};
-
         response.data.items.forEach(item => {
           states[item.productId] = true;
         });
-
         setWishlistState(states);
       } catch (error) {
-        console.log(
-          'Failed to load wishlist:',
-          error,
-        );
-
         setWishlistState({});
       }
     };
-
     loadWishlist();
   }, [isLoggedIn]);
 
@@ -956,23 +710,16 @@ const handleVerifyOtp = async () => {
     const loadCategories = async () => {
       try {
         setCategoriesLoading(true);
-
         const response = await getCategories();
-
         if (response.success && response.data) {
           setCategories(response.data);
         }
       } catch (error) {
-          console.log(
-            'Failed to load categories:',
-            error,
-          );
           setCategories([]);
         } finally {
         setCategoriesLoading(false);
       }
     };
-
     loadCategories();
   }, []);
 
@@ -980,79 +727,40 @@ const handleVerifyOtp = async () => {
     const loadCoupons = async () => {
       try {
         setCouponsLoading(true);
-
-        const accessToken =
-          await getAccessToken();
-
+        const accessToken = await getAccessToken();
         if (!accessToken) {
           setCoupons([]);
           return;
         }
-
-        const response =
-          await getAvailableCoupons();
-
-        if (
-          response.success &&
-          response.data
-        ) {
-          setCoupons(
-            Array.isArray(
-              response.data.coupons,
-            )
-              ? response.data.coupons
-              : [],
-          );
+        const response = await getAvailableCoupons();
+        if (response.success && response.data) {
+          setCoupons(Array.isArray(response.data.coupons) ? response.data.coupons : []);
         } else {
           setCoupons([]);
         }
       } catch (error) {
-        console.log(
-          'Failed to load coupons:',
-          error,
-        );
-
         setCoupons([]);
       } finally {
         setCouponsLoading(false);
       }
     };
-
     loadCoupons();
   }, [isLoggedIn]);
-
 
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setProductsLoading(true);
-
-        const response = await getProducts({
-          page: 1,
-          limit: 50,
-        });
-        console.log('PRODUCTS FETCHED:', response);
-
-        if (
-          response.success &&
-          response.data
-        ) {
-          setProducts(
-            response.data.products,
-          );
+        const response = await getProducts({ page: 1, limit: 50 });
+        if (response.success && response.data) {
+          setProducts(response.data.products);
         }
       } catch (error) {
-        console.log(
-          'Failed to load products:',
-          error,
-        );
-
         setProducts([]);
       } finally {
         setProductsLoading(false);
       }
     };
-
     loadProducts();
   }, []);
 
@@ -1065,7 +773,6 @@ const handleVerifyOtp = async () => {
       return () => clearTimeout(timer);
     }
   }, []);
-
 
   useEffect(() => {
   if (banners.length <= 1) return;
@@ -1121,29 +828,6 @@ const hotDealProducts: ProductItem[] =
     : [];
 
 // =====================================================
-// PRODUCT SEARCH
-// =====================================================
-
-const normalizedSearch =
-  searchText.trim().toLowerCase();
-
-const searchResults =
-  normalizedSearch.length === 0
-    ? []
-    : products.filter(product => {
-        const productName =
-          product.name?.toLowerCase() || '';
-
-        const productSlug =
-          product.slug?.toLowerCase() || '';
-
-        return (
-          productName.includes(normalizedSearch) ||
-          productSlug.includes(normalizedSearch)
-        );
-      });
-
-// =====================================================
 // VOICE SEARCH
 // =====================================================
 
@@ -1154,14 +838,10 @@ const handleVoiceSearch = async () => {
       return;
     }
 
-    const permission =
-      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
-        'Microphone Permission',
-        'Please allow microphone permission to use voice search.',
-      );
+      showCustomAlert('Microphone Permission', 'Please allow microphone permission to use voice search.', 'warning');
       return;
     }
 
@@ -1173,17 +853,8 @@ const handleVoiceSearch = async () => {
       continuous: false,
     });
   } catch (error) {
-    console.error(
-      'Voice search failed:',
-      error,
-    );
-
     setIsVoiceSearching(false);
-
-    Alert.alert(
-      'Voice Search',
-      'Voice search is not available right now.',
-    );
+    showCustomAlert('Voice Search', 'Voice search is not available right now.', 'error');
   }
 };
 
@@ -1199,27 +870,21 @@ const handleSelectLocation = async () => {
   try {
     setLocationLoading(true);
 
-    const permission =
-      await Location.requestForegroundPermissionsAsync();
+    const permission = await Location.requestForegroundPermissionsAsync();
 
     if (permission.status !== 'granted') {
-      Alert.alert(
-        'Location Permission',
-        'Please allow location access to detect your current location.',
-      );
+      showCustomAlert('Location Permission', 'Please allow location access to detect your current location.', 'warning');
       return;
     }
 
-    const currentLocation =
-      await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+    const currentLocation = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
 
-    const addresses =
-      await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
+    const addresses = await Location.reverseGeocodeAsync({
+      latitude: currentLocation.coords.latitude,
+      longitude: currentLocation.coords.longitude,
+    });
 
     const address = addresses?.[0];
 
@@ -1235,15 +900,7 @@ const handleSelectLocation = async () => {
       setLocationName('Current Location');
     }
   } catch (error) {
-    console.error(
-      'Location detection failed:',
-      error,
-    );
-
-    Alert.alert(
-      'Location',
-      'Unable to detect your current location. Please try again.',
-    );
+    showCustomAlert('Location', 'Unable to detect your current location. Please try again.', 'error');
   } finally {
     setLocationLoading(false);
   }
@@ -1263,18 +920,9 @@ const AnimatedSearchPlaceholder = () => {
   return (
     <MotiView
       key={SEARCH_WORDS[index]}
-      from={{
-        opacity: 0,
-        translateY: 15,
-      }}
-      animate={{
-        opacity: 1,
-        translateY: 0,
-      }}
-      transition={{
-        type: 'timing',
-        duration: 400,
-      }}
+      from={{ opacity: 0, translateY: 15 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 400 }}
       style={styles.animatedPlaceholder}
       pointerEvents="none"
     >
@@ -1288,43 +936,35 @@ const AnimatedSearchPlaceholder = () => {
   );
 };
 
+// =====================================================
+// PRODUCT SEARCH
+// =====================================================
+const normalizedSearch = searchText.trim().toLowerCase();
+const searchResults = normalizedSearch.length === 0
+  ? []
+  : products.filter(product => {
+      const productName = product.name?.toLowerCase() || '';
+      const productSlug = product.slug?.toLowerCase() || '';
+      return productName.includes(normalizedSearch) || productSlug.includes(normalizedSearch);
+    });
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FFC529' }}>
       <AnimatePresence>{showSplash && <AnimatedSplashScreen />}</AnimatePresence>
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        {!showSplash && !showAuthModal && <StatusBar barStyle="dark-content" backgroundColor="#FFC529" />}
+        {!showSplash && !showAuthModal && !alertConfig.visible && <StatusBar barStyle="dark-content" backgroundColor="#FFC529" />}
         
         <MotiView from={{ translateY: -50, opacity: 0 }} animate={{ translateY: 0, opacity: 1 }} transition={{ type: 'timing', duration: 600, delay: baseDelay }} style={styles.headerContainer}>
           <View style={styles.topRow}>
             <View style={styles.locationContainer}>
               <Text style={styles.deliverySubText}>Delivery in 10 mins</Text>
-              <TouchableOpacity
-                style={styles.locationSelector}
-                activeOpacity={0.7}
-                onPress={handleSelectLocation}
-                disabled={locationLoading}
-              >
-                <Ionicons
-                  name="location-sharp"
-                  size={20}
-                  color="#E63946"
-                />
-
-                <Text
-                  style={styles.locationText}
-                  numberOfLines={1}
-                >
-                  {locationLoading
-                    ? 'Detecting location...'
-                    : locationName}
+              <TouchableOpacity style={styles.locationSelector} activeOpacity={0.7} onPress={handleSelectLocation} disabled={locationLoading}>
+                <Ionicons name="location-sharp" size={20} color="#E63946" />
+                <Text style={styles.locationText} numberOfLines={1}>
+                  {locationLoading ? 'Detecting location...' : locationName}
                 </Text>
-
-                <Ionicons
-                  name="chevron-down"
-                  size={18}
-                  color="#1F2937"
-                />
+                <Ionicons name="chevron-down" size={18} color="#1F2937" />
               </TouchableOpacity>
             </View>
             <TouchableOpacity 
@@ -1335,7 +975,6 @@ const AnimatedSearchPlaceholder = () => {
                   router.push('/profile');
                   return;
                 }
-
                 setAuthMode('login');
                 setAuthError('');
                 setShowAuthModal(true);
@@ -1350,83 +989,33 @@ const AnimatedSearchPlaceholder = () => {
             <Feather name="search" size={20} color="#6B7280" style={styles.searchIcon} />
             <View style={styles.searchInputContainer}>
               {searchText === '' && <AnimatedSearchPlaceholder />}
-              <TextInput
-                style={styles.searchInput}
-                value={searchText}
-                onChangeText={setSearchText}
-                returnKeyType="search"
-                autoCorrect
-                autoCapitalize="none"
-              />
+              <TextInput style={styles.searchInput} value={searchText} onChangeText={setSearchText} returnKeyType="search" autoCorrect autoCapitalize="none" />
             </View>
             <View style={styles.divider} />
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handleVoiceSearch}
-                style={[
-                  styles.voiceButton,
-                  isVoiceSearching &&
-                    styles.voiceButtonActive,
-                ]}
-              >
-                <Ionicons
-                  name={
-                    isVoiceSearching
-                      ? 'mic'
-                      : 'mic-outline'
-                  }
-                  size={22}
-                  color={
-                    isVoiceSearching
-                      ? '#EF4444'
-                      : '#FF6B6B'
-                  }
-                />
+              <TouchableOpacity activeOpacity={0.7} onPress={handleVoiceSearch} style={[ styles.voiceButton, isVoiceSearching && styles.voiceButtonActive ]}>
+                <Ionicons name={isVoiceSearching ? 'mic' : 'mic-outline'} size={22} color={isVoiceSearching ? '#EF4444' : '#FF6B6B'} />
               </TouchableOpacity>
           </MotiView>
         </MotiView>
 
         {searchText.trim().length > 0 ? (
         <View style={styles.searchResultsContainer}>
-
           {productsLoading ? (
             <View style={styles.searchMessageContainer}>
-              <Text style={styles.searchMessageTitle}>
-                Searching products...
-              </Text>
+              <Text style={styles.searchMessageTitle}>Searching products...</Text>
             </View>
           ) : searchResults.length === 0 ? (
             <View style={styles.searchMessageContainer}>
-              <Ionicons
-                name="search-outline"
-                size={48}
-                color="#D1D5DB"
-              />
-
-              <Text style={styles.searchMessageTitle}>
-                Product not available
-              </Text>
-
+              <Ionicons name="search-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.searchMessageTitle}>Product not available</Text>
               <Text style={styles.searchMessageSubtitle}>
-                We couldn't find "{searchText.trim()}".
-                Try another product name.
+                We couldn't find "{searchText.trim()}". Try another product name.
               </Text>
             </View>
           ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.searchResultsContent}
-            >
-              <Text style={styles.searchResultsTitle}>
-                Search Results
-              </Text>
-
-              <Text style={styles.searchResultsSubtitle}>
-                {searchResults.length} product
-                {searchResults.length > 1 ? 's' : ''} found
-              </Text>
-
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.searchResultsContent}>
+              <Text style={styles.searchResultsTitle}>Search Results</Text>
+              <Text style={styles.searchResultsSubtitle}>{searchResults.length} product{searchResults.length > 1 ? 's' : ''} found</Text>
               <View style={styles.searchProductGrid}>
                 {searchResults.map((product, index) => (
                   <ProductCard
@@ -1437,31 +1026,17 @@ const AnimatedSearchPlaceholder = () => {
                     onProtectAction={requireLogin}
                     onAddToCart={handleAddToCart}
                     onWishlistToggle={handleWishlistToggle}
-                    isWishlisted={
-                      wishlistState[product.id] === true
-                    }
-                    wishlistLoading={
-                      wishlistLoading[product.id] === true
-                    }
-                    cartLoading={
-                      cartLoading[product.id] === true
-                    }
+                    isWishlisted={wishlistState[product.id] === true}
+                    wishlistLoading={wishlistLoading[product.id] === true}
+                    cartLoading={cartLoading[product.id] === true}
                   />
                 ))}
               </View>
             </ScrollView>
           )}
-
         </View>
       ) : (
-        <ScrollView 
-          style={styles.contentContainer} 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={{ 
-            paddingBottom: height * 0.15 
-          }}
-        >
-          
+        <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: height * 0.15 }}>
           {/* STORE CLOSED BANNER */}
           {appSettings?.store?.isClosed && (
             <MotiView from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ backgroundColor: '#FEE2E2', marginHorizontal: width * 0.04, marginTop: 16, padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' }}>
@@ -1487,24 +1062,36 @@ const AnimatedSearchPlaceholder = () => {
                 snapToInterval={width} 
                 snapToAlignment="center" 
                 decelerationRate="fast" 
-                contentContainerStyle={styles.bannerScrollContent} 
+                contentContainerStyle={styles.bannerScrollContent}
                 renderItem={({ item }) => (
-                  <View style={styles.bannerWrapper}>
-                    <TouchableOpacity activeOpacity={0.9} style={styles.bannerCard}>
-                      {item.image ? (
-                        <Image 
-                          source={{ 
-                            uri: item.image.startsWith('http') 
-                              ? (item.image.includes('?') ? `${item.image}&ngrok-skip-browser-warning=true` : `${item.image}?ngrok-skip-browser-warning=true`)
-                              : `${API_BASE_URL}/${item.image}?ngrok-skip-browser-warning=true`
-                          }} 
-                          style={{ width: '100%', height: '100%', borderRadius: 16 }} 
-                          resizeMode="cover" 
-                        />
-                      ) : null}
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <View style={styles.bannerWrapper}>
+                  <TouchableOpacity 
+                    activeOpacity={0.9} 
+                    style={styles.bannerCard}
+                    onPress={() => {
+                      if (item.category?.slug || item.categoryId) {
+                        router.push({
+                          pathname: '/category-details',
+                          params: {
+                            slug: item.category?.slug || item.categoryId,
+                          },
+                        });
+                      }
+                    }}
+                  >
+                    {item.image ? (
+                      <Image 
+                        source={{ 
+                          uri: item.image.startsWith('http') ? item.image : `${API_BASE_URL}/${item.image}`,
+                          headers: { 'ngrok-skip-browser-warning': 'true' }
+                        }} 
+                        style={{ width: '100%', height: '100%', borderRadius: 16 }} 
+                        resizeMode="cover" 
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                </View>
+              )}
               />
             ) : null}
           </MotiView>
@@ -1514,7 +1101,6 @@ const AnimatedSearchPlaceholder = () => {
             <View style={styles.categoryGrid}>
               {categories.map((cat, index) => (
                 <MotiView key={cat.id} from={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', delay: baseDelay + 300 + (index * 50) }} style={styles.categoryItem}>
-
                   <TouchableOpacity 
                     activeOpacity={0.7} 
                     style={styles.categoryIconCircle} 
@@ -1528,11 +1114,7 @@ const AnimatedSearchPlaceholder = () => {
                     }
                   >
                     {isValidIconUrl(cat.icon) ? (
-                      <NgrokSvg
-                        uri={cat.icon!.trim()}
-                        width={40}
-                        height={40}
-                      />
+                      <NgrokSvg uri={cat.icon!.trim()} width={40} height={40} />
                     ) : (
                       <Ionicons name="grid-outline" size={40} color="#EAB308" />
                     )}
@@ -1548,20 +1130,11 @@ const AnimatedSearchPlaceholder = () => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
               {essentialProducts.map((product, index) => (
               <ProductCard
-                key={product.id}
-                product={product}
-                index={index}
-                baseDelay={baseDelay}
-                onProtectAction={requireLogin}
-                onAddToCart={handleAddToCart}
-                onWishlistToggle={handleWishlistToggle}
+                key={product.id} product={product} index={index} baseDelay={baseDelay}
+                onProtectAction={requireLogin} onAddToCart={handleAddToCart} onWishlistToggle={handleWishlistToggle}
                 isWishlisted={wishlistState[product.id] === true}
-                wishlistLoading={
-                  wishlistLoading[product.id] === true
-                }
-                cartLoading={
-                  cartLoading[product.id] === true
-                }
+                wishlistLoading={wishlistLoading[product.id] === true}
+                cartLoading={cartLoading[product.id] === true}
               />
             ))}
             </ScrollView>
@@ -1571,76 +1144,25 @@ const AnimatedSearchPlaceholder = () => {
             <Text style={styles.sectionTitle}>Coupons & Offers</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
               {couponsLoading ? (
-                <View
-                  style={{
-                    width: width * 0.65,
-                    height: 110,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: '#6B7280',
-                      fontSize: 13,
-                      fontWeight: '600',
-                    }}
-                  >
-                    Loading offers...
-                  </Text>
+                <View style={{ width: width * 0.65, height: 110, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '600' }}>Loading offers...</Text>
                 </View>
               ) : coupons.length > 0 ? (
                 coupons.map((coupon) => {
-                  const value =
-                    Number(coupon.value || (coupon as any).discountValue) || 0;
-
+                  const value = Number(coupon.value || (coupon as any).discountValue) || 0;
                   return (
-                    <View
-                      key={coupon.id}
-                      style={[
-                        styles.couponCard,
-                        {
-                          backgroundColor: '#FEF3C7',
-                        },
-                      ]}
-                    >
-                      <Text style={styles.couponCode}>
-                        {coupon.code}
+                    <View key={coupon.id} style={[styles.couponCard, { backgroundColor: '#FEF3C7' }]}>
+                      <Text style={styles.couponCode}>{coupon.code}</Text>
+                      <Text style={styles.couponDesc} numberOfLines={2}>
+                        {(coupon as any).description || ((coupon.type || (coupon as any).discountType) === 'PERCENTAGE' ? `${value}% OFF` : `₹${value.toFixed(0)} OFF`)}
                       </Text>
-
-                      <Text
-                        style={styles.couponDesc}
-                        numberOfLines={2}
-                      >
-                        {(coupon as any).description ||
-                          ((coupon.type || (coupon as any).discountType) === 'PERCENTAGE'
-                            ? `${value}% OFF`
-                            : `₹${value.toFixed(0)} OFF`)}
-                      </Text>
-
-                      <View
-                        style={
-                          styles.couponDashedLine
-                        }
-                      />
+                      <View style={styles.couponDashedLine} />
                     </View>
                   );
                 })
               ) : (
-                <View
-                  style={{
-                    paddingHorizontal: width * 0.04,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: '#9CA3AF',
-                      fontSize: 13,
-                      fontWeight: '600',
-                    }}
-                  >
-                    No offers available right now
-                  </Text>
+                <View style={{ paddingHorizontal: width * 0.04 }}>
+                  <Text style={{ color: '#9CA3AF', fontSize: 13, fontWeight: '600' }}>No offers available right now</Text>
                 </View>
               )}
             </ScrollView>
@@ -1651,20 +1173,11 @@ const AnimatedSearchPlaceholder = () => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
               {bestSellingProducts.map((product, index) => (
                 <ProductCard
-                  key={product.id}
-                  product={product}
-                  index={index}
-                  baseDelay={baseDelay}
-                  onProtectAction={requireLogin}
-                  onAddToCart={handleAddToCart}
-                  onWishlistToggle={handleWishlistToggle}
+                  key={product.id} product={product} index={index} baseDelay={baseDelay}
+                  onProtectAction={requireLogin} onAddToCart={handleAddToCart} onWishlistToggle={handleWishlistToggle}
                   isWishlisted={wishlistState[product.id] === true}
-                  wishlistLoading={
-                    wishlistLoading[product.id] === true
-                  }
-                  cartLoading={
-                    cartLoading[product.id] === true
-                  }
+                  wishlistLoading={wishlistLoading[product.id] === true}
+                  cartLoading={cartLoading[product.id] === true}
                 />
               ))}
             </ScrollView>
@@ -1675,29 +1188,24 @@ const AnimatedSearchPlaceholder = () => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
               {hotDealProducts.map((product, index) => (
                 <ProductCard
-                  key={product.id}
-                  product={product}
-                  index={index}
-                  baseDelay={baseDelay}
-                  onProtectAction={requireLogin}
-                  onAddToCart={handleAddToCart}
-                  onWishlistToggle={handleWishlistToggle}
+                  key={product.id} product={product} index={index} baseDelay={baseDelay}
+                  onProtectAction={requireLogin} onAddToCart={handleAddToCart} onWishlistToggle={handleWishlistToggle}
                   isWishlisted={wishlistState[product.id] === true}
-                  wishlistLoading={
-                    wishlistLoading[product.id] === true
-                  }
-                  cartLoading={
-                    cartLoading[product.id] === true
-                  }
+                  wishlistLoading={wishlistLoading[product.id] === true}
+                  cartLoading={cartLoading[product.id] === true}
                 />
               ))}
             </ScrollView>
           </View>
         </ScrollView>
-      )
-    }
+      )}
 
-        <View style={styles.bottomNav}>
+        <View 
+          style={[
+              styles.bottomNav,
+              { paddingBottom: Math.max(insets.bottom + 10, 25) }
+            ]}
+          >
           <TouchableOpacity style={styles.navItem}><Ionicons name="home" size={24} color="#EAB308" /><View style={styles.activeNavDot} /></TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/categories')}><Ionicons name="grid-outline" size={24} color="#9CA3AF" /></TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/cart')}> 
@@ -1707,7 +1215,47 @@ const AnimatedSearchPlaceholder = () => {
         </View>
       </SafeAreaView>
 
-      {/* FIX: PERFECT BLUR OVERLAY & KEYBOARD HANDLING */}
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
+
+      {/* AUTH MODAL */}
       <AnimatePresence>
         {showAuthModal && (
           <MotiView 
@@ -1715,307 +1263,77 @@ const AnimatedSearchPlaceholder = () => {
             transition={{ type: 'timing', duration: 300 }} 
             style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 999 }]} 
           >
-            {/* Blur Effect */}
             <BlurView intensity={50} tint="dark" style={styles.blurContainer}>
-              
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-                style={{ width: '100%', alignItems: 'center' }}
-              >
-                <MotiView 
-                  from={{ translateY: 200, scale: 0.9 }} animate={{ translateY: 0, scale: 1 }} exit={{ translateY: 400, scale: 0.8 }} 
-                  transition={{ type: 'spring', damping: 18 }} 
-                  style={styles.modalBox}
-                >
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%', alignItems: 'center' }}>
+                <MotiView from={{ translateY: 200, scale: 0.9 }} animate={{ translateY: 0, scale: 1 }} exit={{ translateY: 400, scale: 0.8 }} transition={{ type: 'spring', damping: 18 }} style={styles.modalBox}>
                   {!authSuccess && (
                     <TouchableOpacity style={styles.modalCloseBtn} onPress={() => {
-                        setShowAuthModal(false);
-                        setAuthError('');
-                        setOtp('');
-                        setOtpSent(false);
-                        setOtpExpiresIn(null);
-                        setRegisterOtp('');
-                        setRegisterOtpSent(false);
-                        setRegisterOtpExpiresIn(null);
+                        setShowAuthModal(false); setAuthError(''); setOtp(''); setOtpSent(false); setOtpExpiresIn(null);
+                        setRegisterOtp(''); setRegisterOtpSent(false); setRegisterOtpExpiresIn(null);
                       }}>
                       <Ionicons name="close" size={24} color="#6B7280" />
                     </TouchableOpacity>
                   )}
-
                   {authSuccess ? (
                     <View style={styles.successState}>
                       <MotiView from={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 100 }} style={styles.successCircle}>
                         <Ionicons name="checkmark" size={50} color="#FFF" />
                       </MotiView>
-                      <Text style={styles.successTitle}>
-                        {authMode === 'login' ? 'Login Successful!' : 'Account Created!'}
-                      </Text>
+                      <Text style={styles.successTitle}>{authMode === 'login' ? 'Login Successful!' : 'Account Created!'}</Text>
                       <Text style={styles.successSub}>Getting things ready for you...</Text>
                     </View>
                   ) : (
-                    <ScrollView
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{
-                        flexGrow: 1,
-                        paddingBottom: 20,
-                      }}
-                      keyboardShouldPersistTaps="handled"
-                    >
-                      <Text style={styles.modalTitle}>
-                        {authMode === 'login'
-                          ? 'Welcome Back!'
-                          : 'Create Account'}
-                      </Text>
-
-                      <Text style={styles.modalSub}>
-                        {authMode === 'login'
-                          ? 'Login with your registered mobile number'
-                          : 'Join us for fresh groceries'}
-                      </Text>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
+                      <Text style={styles.modalTitle}>{authMode === 'login' ? 'Welcome Back!' : 'Create Account'}</Text>
+                      <Text style={styles.modalSub}>{authMode === 'login' ? 'Login with your registered mobile number' : 'Join us for fresh groceries'}</Text>
 
                       {authMode === 'login' ? (
                         <>
-                          <TextInput
-                            style={styles.inputField}
-                            placeholder="Mobile Number"
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="phone-pad"
-                            maxLength={10}
-                            value={phone}
-                            onChangeText={(value) => {
-                              setPhone(value.replace(/\D/g, ''));
-                              setAuthError('');
-                            }}
-                            editable={!otpLoading}
-                          />
-
+                          <TextInput style={styles.inputField} placeholder="Mobile Number" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" maxLength={10} value={phone} onChangeText={(value) => { setPhone(value.replace(/\D/g, '')); setAuthError(''); }} editable={!otpLoading} />
                           {!otpSent && (
-                            <TouchableOpacity
-                              style={[
-                                styles.primaryAuthBtn,
-                                otpLoading && { opacity: 0.6 },
-                              ]}
-                              onPress={handleSendOtp}
-                              activeOpacity={0.8}
-                              disabled={otpLoading}
-                            >
-                              <Text style={styles.primaryAuthBtnText}>
-                                {otpLoading ? 'Sending OTP...' : 'Send OTP'}
-                              </Text>
+                            <TouchableOpacity style={[ styles.primaryAuthBtn, otpLoading && { opacity: 0.6 } ]} onPress={handleSendOtp} activeOpacity={0.8} disabled={otpLoading}>
+                              <Text style={styles.primaryAuthBtnText}>{otpLoading ? 'Sending OTP...' : 'Send OTP'}</Text>
                             </TouchableOpacity>
                           )}
-
                           {otpSent && (
                             <>
-                              <TextInput
-                                style={styles.inputField}
-                                placeholder="Enter 6-digit OTP"
-                                placeholderTextColor="#9CA3AF"
-                                keyboardType="number-pad"
-                                maxLength={6}
-                                value={otp}
-                                onChangeText={(value) => {
-                                  setOtp(value.replace(/\D/g, ''));
-                                  setAuthError('');
-                                }}
-                                editable={!otpLoading}
-                              />
-
-                              <TouchableOpacity
-                                style={[
-                                  styles.primaryAuthBtn,
-                                  otpLoading && { opacity: 0.6 },
-                                ]}
-                                onPress={handleVerifyOtp}
-                                activeOpacity={0.8}
-                                disabled={otpLoading}
-                              >
-                                <Text style={styles.primaryAuthBtnText}>
-                                  {otpLoading
-                                    ? 'Verifying...'
-                                    : 'Verify & Login'}
-                                </Text>
+                              <TextInput style={styles.inputField} placeholder="Enter 6-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={6} value={otp} onChangeText={(value) => { setOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!otpLoading} />
+                              <TouchableOpacity style={[ styles.primaryAuthBtn, otpLoading && { opacity: 0.6 } ]} onPress={handleVerifyOtp} activeOpacity={0.8} disabled={otpLoading}>
+                                <Text style={styles.primaryAuthBtnText}>{otpLoading ? 'Verifying...' : 'Verify & Login'}</Text>
                               </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={{
-                                  alignItems: 'center',
-                                  marginTop: 12,
-                                }}
-                                onPress={() => {
-                                  setOtp('');
-                                  setOtpSent(false);
-                                  setOtpExpiresIn(null);
-                                  setAuthError('');
-                                }}
-                                disabled={otpLoading}
-                              >
-                                <Text
-                                  style={{
-                                    color: '#6B7280',
-                                    fontSize: 13,
-                                    fontWeight: '600',
-                                  }}
-                                >
-                                  Change mobile number
-                                </Text>
+                              <TouchableOpacity style={{ alignItems: 'center', marginTop: 12 }} onPress={() => { setOtp(''); setOtpSent(false); setOtpExpiresIn(null); setAuthError(''); }} disabled={otpLoading}>
+                                <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '600' }}>Change mobile number</Text>
                               </TouchableOpacity>
                             </>
                           )}
                         </>
                       ) : (
                         <>
-                          <TextInput
-                            style={styles.inputField}
-                            placeholder="Full Name (e.g. Yash Chaurasia)"
-                            placeholderTextColor="#9CA3AF"
-                            value={regName}
-                            onChangeText={(value) => {
-                              setRegName(value);
-                              setAuthError('');
-                            }}
-                            editable={!registerOtpSent && !registerOtpLoading}
-                          />
-
-                          <TextInput
-                            style={styles.inputField}
-                            placeholder="Phone No."
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="phone-pad"
-                            maxLength={10}
-                            value={regPhone}
-                            onChangeText={(value) => {
-                              setRegPhone(value.replace(/\D/g, ''));
-                              setAuthError('');
-                            }}
-                            editable={!registerOtpSent && !registerOtpLoading}
-                          />
-
-                          <TextInput
-                            style={styles.inputField}
-                            placeholder="Email ID"
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={email}
-                            onChangeText={(value) => {
-                              setEmail(value);
-                              setAuthError('');
-                            }}
-                            editable={!registerOtpSent && !registerOtpLoading}
-                          />
-
+                          <TextInput style={styles.inputField} placeholder="Full Name (e.g. Yash Chaurasia)" placeholderTextColor="#9CA3AF" value={regName} onChangeText={(value) => { setRegName(value); setAuthError(''); }} editable={!registerOtpSent && !registerOtpLoading} />
+                          <TextInput style={styles.inputField} placeholder="Phone No." placeholderTextColor="#9CA3AF" keyboardType="phone-pad" maxLength={10} value={regPhone} onChangeText={(value) => { setRegPhone(value.replace(/\D/g, '')); setAuthError(''); }} editable={!registerOtpSent && !registerOtpLoading} />
+                          <TextInput style={styles.inputField} placeholder="Email ID" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={(value) => { setEmail(value); setAuthError(''); }} editable={!registerOtpSent && !registerOtpLoading} />
                           <View style={styles.passwordContainer}>
-                            <TextInput
-                              style={styles.passwordInput}
-                              placeholder="Password"
-                              placeholderTextColor="#9CA3AF"
-                              secureTextEntry={!showPassword}
-                              value={password}
-                              onChangeText={(value) => {
-                                setPassword(value);
-                                setAuthError('');
-                              }}
-                              editable={!registerOtpSent && !registerOtpLoading}
-                            />
-
-                            <TouchableOpacity
-                              onPress={() => setShowPassword(!showPassword)}
-                              style={styles.eyeIcon}
-                              disabled={registerOtpSent || registerOtpLoading}
-                            >
-                              <Feather
-                                name={showPassword ? 'eye' : 'eye-off'}
-                                size={20}
-                                color="#9CA3AF"
-                              />
+                            <TextInput style={styles.passwordInput} placeholder="Password" placeholderTextColor="#9CA3AF" secureTextEntry={!showPassword} value={password} onChangeText={(value) => { setPassword(value); setAuthError(''); }} editable={!registerOtpSent && !registerOtpLoading} />
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} disabled={registerOtpSent || registerOtpLoading}>
+                              <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color="#9CA3AF" />
                             </TouchableOpacity>
                           </View>
-
                           {!registerOtpSent && (
-                            <TouchableOpacity
-                              style={[
-                                styles.primaryAuthBtn,
-                                isSubmitting && { opacity: 0.6 },
-                              ]}
-                              onPress={handleAuthSubmit}
-                              activeOpacity={0.8}
-                              disabled={isSubmitting}
-                            >
-                              <Text style={styles.primaryAuthBtnText}>
-                                {isSubmitting ? 'Sending OTP...' : 'Send OTP'}
-                              </Text>
+                            <TouchableOpacity style={[ styles.primaryAuthBtn, isSubmitting && { opacity: 0.6 } ]} onPress={handleAuthSubmit} activeOpacity={0.8} disabled={isSubmitting}>
+                              <Text style={styles.primaryAuthBtnText}>{isSubmitting ? 'Sending OTP...' : 'Send OTP'}</Text>
                             </TouchableOpacity>
                           )}
-
                           {registerOtpSent && (
                             <>
-                              <TextInput
-                                style={styles.inputField}
-                                placeholder="Enter 6-digit OTP"
-                                placeholderTextColor="#9CA3AF"
-                                keyboardType="number-pad"
-                                maxLength={6}
-                                value={registerOtp}
-                                onChangeText={(value) => {
-                                  setRegisterOtp(value.replace(/\D/g, ''));
-                                  setAuthError('');
-                                }}
-                                editable={!registerOtpLoading}
-                                autoFocus
-                              />
-
-                              <TouchableOpacity
-                                style={[
-                                  styles.primaryAuthBtn,
-                                  registerOtpLoading && { opacity: 0.6 },
-                                ]}
-                                onPress={handleVerifyRegisterOtp}
-                                activeOpacity={0.8}
-                                disabled={registerOtpLoading}
-                              >
-                                <Text style={styles.primaryAuthBtnText}>
-                                  {registerOtpLoading
-                                    ? 'Creating Account...'
-                                    : 'Verify & Create Account'}
-                                </Text>
+                              <TextInput style={styles.inputField} placeholder="Enter 6-digit OTP" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={6} value={registerOtp} onChangeText={(value) => { setRegisterOtp(value.replace(/\D/g, '')); setAuthError(''); }} editable={!registerOtpLoading} autoFocus />
+                              <TouchableOpacity style={[ styles.primaryAuthBtn, registerOtpLoading && { opacity: 0.6 } ]} onPress={handleVerifyRegisterOtp} activeOpacity={0.8} disabled={registerOtpLoading}>
+                                <Text style={styles.primaryAuthBtnText}>{registerOtpLoading ? 'Creating Account...' : 'Verify & Create Account'}</Text>
                               </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={{
-                                  alignItems: 'center',
-                                  marginTop: 12,
-                                }}
-                                onPress={() => {
-                                  setRegisterOtp('');
-                                  setRegisterOtpSent(false);
-                                  setRegisterOtpExpiresIn(null);
-                                  setAuthError('');
-                                }}
-                                disabled={registerOtpLoading}
-                              >
-                                <Text
-                                  style={{
-                                    color: '#6B7280',
-                                    fontSize: 13,
-                                    fontWeight: '600',
-                                  }}
-                                >
-                                  Change mobile number
-                                </Text>
+                              <TouchableOpacity style={{ alignItems: 'center', marginTop: 12 }} onPress={() => { setRegisterOtp(''); setRegisterOtpSent(false); setRegisterOtpExpiresIn(null); setAuthError(''); }} disabled={registerOtpLoading}>
+                                <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '600' }}>Change mobile number</Text>
                               </TouchableOpacity>
-
                               {registerOtpExpiresIn !== null && (
-                                <Text
-                                  style={{
-                                    textAlign: 'center',
-                                    color: '#6B7280',
-                                    fontSize: 12,
-                                    marginTop: 10,
-                                  }}
-                                >
-                                  OTP expires in {registerOtpExpiresIn} seconds
-                                </Text>
+                                <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 12, marginTop: 10 }}>OTP expires in {registerOtpExpiresIn} seconds</Text>
                               )}
                             </>
                           )}
@@ -2023,51 +1341,15 @@ const AnimatedSearchPlaceholder = () => {
                       )}
 
                       {authError !== '' && (
-                        <Text
-                          style={{
-                            color: '#DC2626',
-                            fontSize: 13,
-                            marginTop: 12,
-                            marginBottom: 4,
-                            fontWeight: '600',
-                            textAlign:
-                              authMode === 'login'
-                                ? 'center'
-                                : 'left',
-                          }}
-                        >
+                        <Text style={{ color: '#DC2626', fontSize: 13, marginTop: 12, marginBottom: 4, fontWeight: '600', textAlign: authMode === 'login' ? 'center' : 'left' }}>
                           {authError}
                         </Text>
                       )}
 
                       <View style={styles.toggleAuthMode}>
-                        <Text style={styles.authToggleText}>
-                          {authMode === 'login'
-                            ? "Don't have an account? "
-                            : 'Already have an account? '}
-                        </Text>
-
-                        <TouchableOpacity
-                          onPress={() => {
-                            setAuthMode(
-                              authMode === 'login'
-                                ? 'register'
-                                : 'login',
-                            );
-                            setAuthError('');
-                            setOtp('');
-                            setOtpSent(false);
-                            setOtpExpiresIn(null);
-                            setRegisterOtp('');
-                            setRegisterOtpSent(false);
-                            setRegisterOtpExpiresIn(null);
-                          }}
-                        >
-                          <Text style={styles.authToggleLink}>
-                            {authMode === 'login'
-                              ? 'Create an account'
-                              : 'Login here'}
-                          </Text>
+                        <Text style={styles.authToggleText}>{authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}</Text>
+                        <TouchableOpacity onPress={() => { setAuthMode( authMode === 'login' ? 'register' : 'login' ); setAuthError(''); setOtp(''); setOtpSent(false); setOtpExpiresIn(null); setRegisterOtp(''); setRegisterOtpSent(false); setRegisterOtpExpiresIn(null); }}>
+                          <Text style={styles.authToggleLink}>{authMode === 'login' ? 'Create an account' : 'Login here'}</Text>
                         </TouchableOpacity>
                       </View>
                     </ScrollView>
@@ -2083,16 +1365,27 @@ const AnimatedSearchPlaceholder = () => {
 }
 
 const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
-  const [xml, setXml] = React.useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  let sanitizedUri = uri ? uri.trim().replace(/\s+/g, '%20') : '';
 
-  React.useEffect(() => {
-    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
-      .then(res => res.text())
-      .then(text => setXml(text))
-      .catch(err => console.log('SVG Fetch Error:', err));
-  }, [uri]);
+  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+    return (
+      <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 32 }}>
+        <Ionicons name="grid-outline" size={width * 0.5} color="#CA8A04" />
+      </View>
+    );
+  }
 
-  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+  return (
+    <Image 
+      source={{ 
+        uri: sanitizedUri,
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      }}
+      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
+      onError={() => setHasError(true)}
+    />
+  );
 };
 
 const styles = StyleSheet.create({
@@ -2155,7 +1448,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  categoryIconCircle: { width: 65, height: 65, borderRadius: 35, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3, marginBottom: 8 },
+  categoryIconCircle: { 
+    width: 65, 
+    height: 65, 
+    borderRadius: 35, 
+    backgroundColor: '#FFF', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    overflow: 'hidden',
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.06, 
+    shadowRadius: 6, 
+    elevation: 3, 
+    marginBottom: 8 
+  },
   emojiIcon: { fontSize: 30 },
   categoryName: { fontSize: 11, fontWeight: '600', color: '#4B5563', textAlign: 'center' },
 
@@ -2276,4 +1583,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
   },
+
+  // CUSTOM ALERT STYLES
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

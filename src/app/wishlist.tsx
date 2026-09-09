@@ -17,14 +17,15 @@ import {
   Image,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Ionicons,
   Feather,
 } from '@expo/vector-icons';
 
-import { MotiView } from 'moti';
+import { MotiView, AnimatePresence } from 'moti';
+import { BlurView } from 'expo-blur';
 
 import { useRouter } from 'expo-router';
 
@@ -45,7 +46,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
 // =====================================================
 // SCREEN
@@ -53,6 +54,20 @@ const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1'
 
 export default function WishlistScreen() {
   const router = useRouter();
+
+  // =====================================================
+  // CUSTOM ANIMATED ALERT STATE
+  // =====================================================
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
 
   // ===================================================
   // STATE
@@ -138,9 +153,10 @@ export default function WishlistScreen() {
             .toLowerCase()
             .includes('login')
         ) {
-          Alert.alert(
+          showCustomAlert(
             'Wishlist',
             message,
+            'error'
           );
         }
 
@@ -167,21 +183,10 @@ export default function WishlistScreen() {
     try {
       await addToCart(productId, 1);
 
-      Alert.alert(
+      showCustomAlert(
         'Added to Cart',
         'Product has been added to your cart.',
-        [
-          {
-            text: 'Continue Shopping',
-            style: 'cancel',
-          },
-          {
-            text: 'View Cart',
-            onPress: () => {
-              router.push('/cart');
-            },
-          },
-        ],
+        'success'
       );
     } catch (error) {
       console.error(
@@ -189,11 +194,12 @@ export default function WishlistScreen() {
         error,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Unable to Add',
         error instanceof Error
           ? error.message
           : 'Unable to add product to cart.',
+        'error'
       );
     }
   };
@@ -247,11 +253,11 @@ export default function WishlistScreen() {
         error,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Unable to Remove',
         error instanceof Error
           ? error.message
-          : 'Unable to remove product from wishlist.',
+          : 'Unable to remove product from wishlist.', 'error'
       );
     } finally {
       setRemovingId(null);
@@ -262,7 +268,7 @@ export default function WishlistScreen() {
   // CLEAR WISHLIST
   // ===================================================
 
-  const handleClearWishlist = () => {
+  const handleClearWishlist = async () => {
     if (
       clearing ||
       items.length === 0
@@ -270,43 +276,34 @@ export default function WishlistScreen() {
       return;
     }
 
-    Alert.alert(
-      'Clear Wishlist',
-      'Are you sure you want to remove all products from your wishlist?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setClearing(true);
+    try {
+      setClearing(true);
 
-              await clearWishlist();
+      await clearWishlist();
 
-              setItems([]);
-            } catch (error) {
-              console.error(
-                'Failed to clear wishlist:',
-                error,
-              );
+      setItems([]);
 
-              Alert.alert(
-                'Unable to Clear',
-                error instanceof Error
-                  ? error.message
-                  : 'Unable to clear wishlist.',
-              );
-            } finally {
-              setClearing(false);
-            }
-          },
-        },
-      ],
-    );
+      showCustomAlert(
+        'Wishlist Cleared',
+        'All products have been removed from your wishlist.',
+        'success'
+      );
+    } catch (error) {
+      console.error(
+        'Failed to clear wishlist:',
+        error,
+      );
+
+      showCustomAlert(
+        'Unable to Clear',
+        error instanceof Error
+          ? error.message
+          : 'Unable to clear wishlist.',
+        'error'
+      );
+    } finally {
+      setClearing(false);
+    }
   };
 
   // ===================================================
@@ -420,7 +417,7 @@ export default function WishlistScreen() {
           {image ? (
             <Image
               source={{
-                uri: `${API_BASE_URL}/${image}?ngrok-skip-browser-warning=true`,
+                uri: image.startsWith('http') ? image : `${API_BASE_URL}/${image}`,
                 headers: { 'ngrok-skip-browser-warning': 'true' }
               }}
               style={
@@ -1007,6 +1004,47 @@ export default function WishlistScreen() {
       <BottomNavigation
         router={router}
       />
+
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
+
     </SafeAreaView>
   );
 }
@@ -1024,9 +1062,14 @@ type BottomNavigationProps = {
 function BottomNavigation({
   router,
 }: BottomNavigationProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <View
-      style={styles.bottomNav}
+      style={[
+        styles.bottomNav,
+        { paddingBottom: Math.max(insets.bottom + 10, 25) }
+      ]}
     >
       {/* Home */}
 
@@ -1544,4 +1587,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
   },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

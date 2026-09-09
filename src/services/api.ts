@@ -9,9 +9,9 @@ import {
 // API CONFIG
 // =====================================================
 
-const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+// const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
-// const API_BASE_URL = 'http://40.40.13.110:3000/api/v1';
+const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
 const REQUEST_TIMEOUT = 15000;
 

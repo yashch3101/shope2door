@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -43,4 +44,12 @@ export class CreateCategoryDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  parentId?: string; // <-- Yeh add karo
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean; // <-- Yeh add karo
 }

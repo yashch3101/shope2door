@@ -13,9 +13,10 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Ionicons,
@@ -23,8 +24,6 @@ import {
 } from '@expo/vector-icons';
 
 import { MotiView } from 'moti';
-
-import { SvgXml } from 'react-native-svg';
 
 function isValidIconUrl(icon?: string | null): boolean {
   if (!icon) {
@@ -46,6 +45,8 @@ const { width } =
 
 export default function CategoriesScreen() {
   const router = useRouter();
+
+  const insets = useSafeAreaInsets();
 
   // =====================================================
   // STATE
@@ -374,7 +375,10 @@ export default function CategoriesScreen() {
           ================================================= */}
 
       <View
-        style={styles.bottomNav}
+        style={[
+          styles.bottomNav,
+          { paddingBottom: Math.max(insets.bottom + 10, 25) }
+        ]}
       >
         <TouchableOpacity
           style={styles.navItem}
@@ -436,16 +440,27 @@ export default function CategoriesScreen() {
 }
 
 const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: number }) => {
-  const [xml, setXml] = React.useState<string | null>(null);
+  const [hasError, setHasError] = React.useState(false);
+  let sanitizedUri = uri ? uri.trim().replace(/\s+/g, '%20') : '';
 
-  React.useEffect(() => {
-    fetch(uri, { headers: { 'ngrok-skip-browser-warning': 'true' } })
-      .then(res => res.text())
-      .then(text => setXml(text))
-      .catch(err => console.log('SVG Fetch Error:', err));
-  }, [uri]);
+  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+    return (
+      <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 16 }}>
+        <Ionicons name="grid-outline" size={width * 0.5} color="#CA8A04" />
+      </View>
+    );
+  }
 
-  return xml ? <SvgXml xml={xml} width={width} height={height} /> : <Ionicons name="grid-outline" size={width} color="#D1D5DB" />;
+  return (
+    <Image 
+      source={{ 
+        uri: sanitizedUri,
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      }}
+      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
+      onError={() => setHasError(true)}
+    />
+  );
 };
 
 // =======================================================
@@ -517,12 +532,12 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start', // FIX: 'space-between' ko hatakar 'flex-start' kiya taaki gap na bane
-    paddingHorizontal: 5, // Padding thodi adjust ki taaki 4 items fit aayein
+    justifyContent: 'flex-start',
+    paddingHorizontal: 5,
   },
 
   categoryItem: {
-    width: '25%', // FIX: 25% width ka matlab exact 4 items per row aayenge (25x4=100)
+    width: '25%',
     alignItems: 'center',
     marginBottom: 24,
   },
@@ -535,6 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+    overflow: 'hidden',
 
     shadowColor: '#000',
     shadowOffset: {

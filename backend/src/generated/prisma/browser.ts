@@ -137,3 +137,8 @@ export type OfflineMap = Prisma.OfflineMapModel
  * 
  */
 export type WebhookEvent = Prisma.WebhookEventModel
+/**
+ * Model DeliverySlab
+ * 
+ */
+export type DeliverySlab = Prisma.DeliverySlabModel

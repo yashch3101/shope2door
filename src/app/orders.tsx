@@ -19,7 +19,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { useRouter } from 'expo-router';
@@ -398,6 +398,8 @@ function OrderCard({
 
 export default function OrdersScreen() {
   const router = useRouter();
+
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] =
     useState<OrderTab>('Active');
@@ -912,8 +914,15 @@ function BottomNavigation({
     typeof useRouter
   >;
 }) {
+  const insets = useSafeAreaInsets();
+  
   return (
-    <View style={styles.bottomNav}>
+    <View 
+      style={[
+          styles.bottomNav,
+          { paddingBottom: Math.max(insets.bottom + 10, 25) }
+        ]}
+      >
       {/* HOME */}
 
       <TouchableOpacity

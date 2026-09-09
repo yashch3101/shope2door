@@ -177,4 +177,17 @@ export class AdminController {
       dto.stock,
     );
   }
+
+  // =====================================================
+  // DAILY REVENUE REPORT
+  // =====================================================
+
+  @Get('daily-report')
+  async getDailyReport(@Query('date') date?: string) {
+    const data = await this.adminService.getDailyReport(date);
+    return {
+      success: true,
+      data,
+    };
+  }
 }

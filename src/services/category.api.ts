@@ -8,6 +8,8 @@ export interface Category {
   image?: string | null;
   icon?: string | null;
   sortOrder: number;
+  parentId?: string | null;
+  subCategories?: Category[];
 }
 
 export interface CategoriesResponse {

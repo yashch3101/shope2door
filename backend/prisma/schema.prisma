@@ -153,6 +153,10 @@ model Category {
 
   sortOrder Int @default(0)
 
+  parentId String?
+  parent Category? @relation("SubCategories", fields: [parentId], references: [id])
+  subCategories Category[] @relation("SubCategories")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -163,6 +167,7 @@ model Category {
   @@index([isActive])
   @@index([sortOrder])
   @@index([legacyId])
+  @@index([parentId])
 }
 
 // =====================================================
@@ -844,6 +849,9 @@ model DeliverySettings {
 
   deliveryTime String?
 
+  storeLatitude      Decimal? @db.Decimal(10, 7)
+  storeLongitude     Decimal? @db.Decimal(10, 7)
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -959,4 +967,18 @@ model WebhookEvent {
 
   @@index([event])
   @@index([processed])
+}
+
+// =====================================================
+// DELIVERY SLAB (Distance Based Delivery Charges)
+// =====================================================
+
+model DeliverySlab {
+  id          String   @id @default(cuid())
+  minDistance Decimal  @db.Decimal(10, 2)
+  maxDistance Decimal  @db.Decimal(10, 2)
+  charge      Decimal  @db.Decimal(10, 2)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

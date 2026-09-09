@@ -74,7 +74,8 @@ export const ModelName = {
   City: 'City',
   HelpSettings: 'HelpSettings',
   OfflineMap: 'OfflineMap',
-  WebhookEvent: 'WebhookEvent'
+  WebhookEvent: 'WebhookEvent',
+  DeliverySlab: 'DeliverySlab'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -134,6 +135,7 @@ export const CategoryScalarFieldEnum = {
   icon: 'icon',
   isActive: 'isActive',
   sortOrder: 'sortOrder',
+  parentId: 'parentId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -410,6 +412,8 @@ export const DeliverySettingsScalarFieldEnum = {
   freeDeliveryAbove: 'freeDeliveryAbove',
   minimumOrderAmount: 'minimumOrderAmount',
   deliveryTime: 'deliveryTime',
+  storeLatitude: 'storeLatitude',
+  storeLongitude: 'storeLongitude',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -478,6 +482,18 @@ export const WebhookEventScalarFieldEnum = {
 } as const
 
 export type WebhookEventScalarFieldEnum = (typeof WebhookEventScalarFieldEnum)[keyof typeof WebhookEventScalarFieldEnum]
+
+
+export const DeliverySlabScalarFieldEnum = {
+  id: 'id',
+  minDistance: 'minDistance',
+  maxDistance: 'maxDistance',
+  charge: 'charge',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DeliverySlabScalarFieldEnum = (typeof DeliverySlabScalarFieldEnum)[keyof typeof DeliverySlabScalarFieldEnum]
 
 
 export const SortOrder = {

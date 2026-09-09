@@ -12,11 +12,14 @@ import {
   StatusBar,
   ScrollView,
   FlatList,
-  Alert,
   Image,
+  Dimensions,
 } from 'react-native';
 
-import { addToCart } from '../services/cart.api';
+import { addToCart, getCart } from '../services/cart.api';
+
+import { getAppSettings, AppSettings } from '../services/settings.api';
+import { getAccessToken } from '../services/auth.storage';
 
 import {
   getWishlist,
@@ -24,7 +27,7 @@ import {
   removeFromWishlist,
 } from '../services/wishlist.api';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Ionicons,
@@ -32,9 +35,11 @@ import {
   MaterialIcons,
 } from '@expo/vector-icons';
 
-import { SvgXml } from 'react-native-svg';
+import { MotiView, AnimatePresence } from 'moti';
 
-import { MotiView } from 'moti';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 import {
   useRouter,
@@ -63,7 +68,20 @@ function isValidIconUrl(icon?: string | null): boolean {
 export default function CategoryDetailsScreen() {
   const router = useRouter();
 
-  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  const insets = useSafeAreaInsets();
+
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
+
+  const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
   const params = useLocalSearchParams();
 
@@ -88,6 +106,10 @@ export default function CategoryDetailsScreen() {
   const [activeCategorySlug, setActiveCategorySlug] =
     useState(initialSlug);
 
+  // NAYA STATE: SUB-CATEGORY TRACK KARNE KE LIYE
+  const [activeSubCategorySlug, setActiveSubCategorySlug] = 
+    useState<string | null>(null);
+
   const [products, setProducts] =
     useState<Product[]>([]);
 
@@ -99,6 +121,38 @@ export default function CategoryDetailsScreen() {
 
   const [wishlistLoading, setWishlistLoading] =
     useState<Record<string, boolean>>({});
+
+  // =====================================================
+  // CART & SETTINGS STATE FOR FREE DELIVERY BANNER
+  // =====================================================
+  const [cartSubtotal, setCartSubtotal] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  // Cart Fetcher
+  const loadCartAndSettings = useCallback(async () => {
+    try {
+      const settingsRes = await getAppSettings();
+      if (settingsRes.success && settingsRes.data) {
+        setAppSettings(settingsRes.data);
+      }
+
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const response = await getCart();
+      if (response.success && response.data) {
+        setCartSubtotal(Number(response.data.summary.subtotal) || 0);
+        setTotalItems(Number(response.data.summary.totalItems) || 0);
+      }
+    } catch (error) {
+      console.log('Failed to load cart for banner:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCartAndSettings();
+  }, [loadCartAndSettings]);
 
   // =====================================================
   // LOAD PRODUCTS FOR CATEGORY
@@ -169,12 +223,17 @@ export default function CategoryDetailsScreen() {
         );
 
         // -----------------------------------------------
-        // Get products of selected category
+        // Get products of selected category OR sub-category
         // -----------------------------------------------
+        if (selectedCategory.subCategories && selectedCategory.subCategories.length > 0) {
+          const firstSub = selectedCategory.subCategories[0];
+          setActiveSubCategorySlug(firstSub.slug);
+          await loadProductsForCategory(firstSub.id);
+        } else {
+          setActiveSubCategorySlug(null);
+          await loadProductsForCategory(selectedCategory.id);
+        }
 
-        await loadProductsForCategory(
-          selectedCategory.id,
-        );
       } catch (error) {
         console.error(
           'Failed to load category:',
@@ -230,9 +289,15 @@ export default function CategoryDetailsScreen() {
               selectedCategory.slug,
             );
 
-            await loadProductsForCategory(
-              selectedCategory.id,
-            );
+            // NAYA LOGIC: Check for sub-categories
+            if ((selectedCategory as any).subCategories && (selectedCategory as any).subCategories.length > 0) {
+              const firstSub = (selectedCategory as any).subCategories[0];
+              setActiveSubCategorySlug(firstSub.slug);
+              await loadProductsForCategory(firstSub.id);
+            } else {
+              setActiveSubCategorySlug(null);
+              await loadProductsForCategory(selectedCategory.id);
+            }
 
             return;
           }
@@ -270,9 +335,16 @@ export default function CategoryDetailsScreen() {
           firstCategory.slug,
         );
 
-        await loadProductsForCategory(
-          firstCategory.id,
-        );
+        // NAYA LOGIC: Check for sub-categories
+        if ((firstCategory as any).subCategories && (firstCategory as any).subCategories.length > 0) {
+          const firstSub = (firstCategory as any).subCategories[0];
+          setActiveSubCategorySlug(firstSub.slug);
+          await loadProductsForCategory(firstSub.id);
+        } else {
+          setActiveSubCategorySlug(null);
+          await loadProductsForCategory(firstCategory.id);
+        }
+
       } catch (error) {
         console.error(
           'Failed to initialize categories:',
@@ -295,31 +367,34 @@ export default function CategoryDetailsScreen() {
   ]);
 
   // =====================================================
-  // CATEGORY CHANGE
+  // SIDEBAR CLICK HANDLER
   // =====================================================
-
-  const handleCategoryChange = async (
-    category: Category,
+  const handleSidebarPress = async (
+    item: Category,
   ) => {
     try {
-      setActiveCategorySlug(
-        category.slug,
-      );
-
-      setActiveCategory(
-        category,
-      );
-
-      setProducts([]);
-
-      await loadProductsForCategory(
-        category.id,
-      );
+      setProducts([]); // Purane products hatao loading ke liye
+      
+      // Agar currently sub-categories dikh rahi hain
+      if ((activeCategory as any)?.subCategories && (activeCategory as any).subCategories.length > 0) {
+        setActiveSubCategorySlug(item.slug);
+        await loadProductsForCategory(item.id);
+      } else {
+        // Agar main categories dikh rahi hain (fallback)
+        setActiveCategorySlug(item.slug);
+        setActiveCategory(item);
+        
+        if ((item as any).subCategories && (item as any).subCategories.length > 0) {
+          const firstSub = (item as any).subCategories[0];
+          setActiveSubCategorySlug(firstSub.slug);
+          await loadProductsForCategory(firstSub.id);
+        } else {
+          setActiveSubCategorySlug(null);
+          await loadProductsForCategory(item.id);
+        }
+      }
     } catch (error) {
-      console.error(
-        'Failed to change category:',
-        error,
-      );
+      console.error('Failed to change category:', error);
     }
   };
 
@@ -412,11 +487,10 @@ export default function CategoryDetailsScreen() {
         error,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Wishlist',
-        error instanceof Error
-          ? error.message
-          : 'Unable to update wishlist.',
+        error instanceof Error ? error.message : 'Unable to update wishlist.',
+        'error'
       );
     } finally {
       setWishlistLoading(prev => ({
@@ -428,9 +502,10 @@ export default function CategoryDetailsScreen() {
 
   const handleAddToCart = async (product: Product) => {
     if (product.stock <= 0) {
-      Alert.alert(
+      showCustomAlert(
         'Out of Stock',
         'This product is currently unavailable.',
+        'warning'
       );
       return;
     }
@@ -438,10 +513,12 @@ export default function CategoryDetailsScreen() {
     try {
       // Pass product.id directly
       await addToCart(product.id, 1);
+      await loadCartAndSettings();
 
-      Alert.alert(
+      showCustomAlert(
         'Added to Cart',
         `${product.name} has been added to your cart.`,
+        'success'
       );
     } catch (error) {
       console.error(
@@ -449,11 +526,10 @@ export default function CategoryDetailsScreen() {
         error,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Unable to Add',
-        error instanceof Error
-          ? error.message
-          : 'Unable to add product to cart.',
+        error instanceof Error ? error.message : 'Unable to add product to cart.',
+        'error'
       );
     }
   };
@@ -521,7 +597,7 @@ export default function CategoryDetailsScreen() {
       <View style={styles.mainContainer}>
 
         {/* ===============================================
-            2. LEFT SIDEBAR
+            2. LEFT SIDEBAR (UPDATED FOR SUB-CATEGORIES)
             =============================================== */}
 
         <View style={styles.sidebar}>
@@ -533,15 +609,21 @@ export default function CategoryDetailsScreen() {
               paddingBottom: 100,
             }}
           >
-            {categories.map(
-              (category, index) => {
-                const isActive =
-                  category.slug ===
-                  activeCategorySlug;
+            {/* AGAR SUB-CATEGORIES HAIN TOH WO DIKHAO, WARNA MAIN CATEGORIES */}
+            {((activeCategory as any)?.subCategories && (activeCategory as any).subCategories.length > 0
+              ? (activeCategory as any).subCategories
+              : categories
+            ).map(
+              (item: Category, index: number) => {
+                
+                // Active check: Sub-category vs Main category
+                const isActive = (activeCategory as any)?.subCategories && (activeCategory as any).subCategories.length > 0
+                  ? item.slug === activeSubCategorySlug
+                  : item.slug === activeCategorySlug;
 
                 return (
                   <MotiView
-                    key={category.id}
+                    key={item.id}
                     from={{
                       opacity: 0,
                       translateX: -20,
@@ -565,8 +647,8 @@ export default function CategoryDetailsScreen() {
                           styles.sidebarItemActive,
                       ]}
                       onPress={() =>
-                        handleCategoryChange(
-                          category,
+                        handleSidebarPress(
+                          item,
                         )
                       }
                     >
@@ -585,18 +667,18 @@ export default function CategoryDetailsScreen() {
                       )}
 
                       <View style={styles.iconCircle}>
-                        {isValidIconUrl(category.icon) ? (
+                        {isValidIconUrl(item.icon) ? (
                           <NgrokSvg
                             uri={
-                              category.icon?.startsWith('http')
-                                ? category.icon.trim()
-                                : `${API_BASE_URL}/${category.icon!.trim()}`
+                              item.icon?.startsWith('http')
+                                ? item.icon.trim()
+                                : `${API_BASE_URL}/${item.icon!.trim()}`
                             }
                             width={32}
                             height={32}
                           />
                         ) : (
-                          <Ionicons name="grid-outline" size={32} color="#EAB308" />
+                          <Ionicons name="fast-food-outline" size={32} color="#EAB308" />
                         )}
                       </View>
 
@@ -607,7 +689,7 @@ export default function CategoryDetailsScreen() {
                             styles.sidebarItemTextActive,
                         ]}
                       >
-                        {category.name}
+                        {item.name}
                       </Text>
                     </TouchableOpacity>
                   </MotiView>
@@ -627,7 +709,7 @@ export default function CategoryDetailsScreen() {
           }
         >
           <MotiView
-            key={activeCategorySlug}
+            key={activeSubCategorySlug || activeCategorySlug}
             style={{
               flex: 1,
             }}
@@ -641,9 +723,10 @@ export default function CategoryDetailsScreen() {
               showsVerticalScrollIndicator={
                 false
               }
-              contentContainerStyle={
-                styles.gridContent
-              }
+              contentContainerStyle={[
+                styles.gridContent,
+                { paddingBottom: Math.max(insets.bottom + 20, 100) }
+              ]}
 
               renderItem={({
                 item,
@@ -897,6 +980,99 @@ export default function CategoryDetailsScreen() {
           </MotiView>
         </View>
       </View>
+
+      {/* =================================================
+          BOTTOM FLOATING FREE DELIVERY BANNER
+      ================================================= */}
+      {totalItems > 0 && (
+        <MotiView
+          from={{ translateY: 100, opacity: 0 }}
+          animate={{ translateY: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 15 }}
+          style={[styles.floatingBannerContainer, { paddingBottom: Math.max(insets.bottom + 10, 20) }]}
+        >
+          {(() => {
+            const threshold = Number((appSettings?.delivery as any)?.freeDeliveryAbove) || 200;
+            const amountNeeded = Math.max(0, threshold - cartSubtotal);
+            const progress = Math.min((cartSubtotal / threshold) * 100, 100);
+
+            return (
+              <View style={styles.floatingBannerInner}>
+                <View style={styles.freeDeliveryContent}>
+                  <View style={{ marginBottom: 6 }}>
+                    {amountNeeded > 0 ? (
+                      <Text style={styles.freeDeliveryText}>
+                        Add <Text style={{fontWeight: '900'}}>₹{amountNeeded.toFixed(0)}</Text> more to unlock <Text style={{fontWeight: '900'}}>Free Delivery</Text>
+                      </Text>
+                    ) : (
+                      <Text style={styles.freeDeliverySuccessText}>
+                        🎉 Free Delivery Unlocked!
+                      </Text>
+                    )}
+                  </View>
+                  
+                  {/* Progress Bar */}
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${progress}%` }, amountNeeded === 0 && { backgroundColor: '#10B981' }]} />
+                  </View>
+                </View>
+
+                {/* View Cart Button */}
+                <TouchableOpacity 
+                  style={styles.viewCartBtn} 
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/cart')}
+                >
+                  <Text style={styles.viewCartBtnText}>Cart</Text>
+                  <View style={styles.cartCountBadge}>
+                    <Text style={styles.cartCountText}>{totalItems}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
+        </MotiView>
+      )}
+
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
     </SafeAreaView>
   );
 }
@@ -912,7 +1088,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
 
   if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
     return (
-      <View style={{ width, height, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 12 }}>
+      <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 25 }}>
         <Ionicons name="fast-food-outline" size={width * 0.55} color="#CA8A04" />
       </View>
     );
@@ -920,8 +1096,11 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
 
   return (
     <Image 
-      source={{ uri: sanitizedUri }}
-      style={{ width, height, resizeMode: 'contain' }}
+      source={{ 
+        uri: sanitizedUri,
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      }}
+      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
       onError={() => {
         console.log("Failed to load icon:", sanitizedUri);
         setHasError(true);
@@ -1008,6 +1187,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -1183,5 +1363,100 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+
+  floatingBannerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    zIndex: 99,
+  },
+  
+  floatingBannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F2937', 
+    padding: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  freeDeliveryContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  freeDeliveryText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  freeDeliverySuccessText: {
+    color: '#34D399',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  progressBarBg: {
+    height: 4,
+    backgroundColor: '#374151',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#EAB308',
+    borderRadius: 2,
+  },
+
+  viewCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAB308',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+
+  viewCartBtnText: {
+    color: '#1F2937',
+    fontWeight: '800',
+    fontSize: 14,
+    marginRight: 6,
+  },
+
+  cartCountBadge: {
+    backgroundColor: '#FFF',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cartCountText: {
+    color: '#1F2937',
+    fontSize: 10,
+    fontWeight: '900',
   },
 });

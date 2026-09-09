@@ -420,7 +420,8 @@ export const ModelName = {
   City: 'City',
   HelpSettings: 'HelpSettings',
   OfflineMap: 'OfflineMap',
-  WebhookEvent: 'WebhookEvent'
+  WebhookEvent: 'WebhookEvent',
+  DeliverySlab: 'DeliverySlab'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -436,7 +437,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "legacyOtpChallenge" | "category" | "product" | "productVariant" | "productImage" | "productInfo" | "productHighlight" | "banner" | "address" | "cart" | "cartItem" | "wishlistItem" | "order" | "orderItem" | "coupon" | "payment" | "storeSettings" | "deliverySettings" | "district" | "city" | "helpSettings" | "offlineMap" | "webhookEvent"
+    modelProps: "user" | "legacyOtpChallenge" | "category" | "product" | "productVariant" | "productImage" | "productInfo" | "productHighlight" | "banner" | "address" | "cart" | "cartItem" | "wishlistItem" | "order" | "orderItem" | "coupon" | "payment" | "storeSettings" | "deliverySettings" | "district" | "city" | "helpSettings" | "offlineMap" | "webhookEvent" | "deliverySlab"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2216,6 +2217,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    DeliverySlab: {
+      payload: Prisma.$DeliverySlabPayload<ExtArgs>
+      fields: Prisma.DeliverySlabFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DeliverySlabFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DeliverySlabFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        findFirst: {
+          args: Prisma.DeliverySlabFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DeliverySlabFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        findMany: {
+          args: Prisma.DeliverySlabFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>[]
+        }
+        create: {
+          args: Prisma.DeliverySlabCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        createMany: {
+          args: Prisma.DeliverySlabCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DeliverySlabCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>[]
+        }
+        delete: {
+          args: Prisma.DeliverySlabDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        update: {
+          args: Prisma.DeliverySlabUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        deleteMany: {
+          args: Prisma.DeliverySlabDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DeliverySlabUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DeliverySlabUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>[]
+        }
+        upsert: {
+          args: Prisma.DeliverySlabUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliverySlabPayload>
+        }
+        aggregate: {
+          args: Prisma.DeliverySlabAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDeliverySlab>
+        }
+        groupBy: {
+          args: Prisma.DeliverySlabGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeliverySlabGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DeliverySlabCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeliverySlabCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2296,6 +2371,7 @@ export const CategoryScalarFieldEnum = {
   icon: 'icon',
   isActive: 'isActive',
   sortOrder: 'sortOrder',
+  parentId: 'parentId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -2572,6 +2648,8 @@ export const DeliverySettingsScalarFieldEnum = {
   freeDeliveryAbove: 'freeDeliveryAbove',
   minimumOrderAmount: 'minimumOrderAmount',
   deliveryTime: 'deliveryTime',
+  storeLatitude: 'storeLatitude',
+  storeLongitude: 'storeLongitude',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -2640,6 +2718,18 @@ export const WebhookEventScalarFieldEnum = {
 } as const
 
 export type WebhookEventScalarFieldEnum = (typeof WebhookEventScalarFieldEnum)[keyof typeof WebhookEventScalarFieldEnum]
+
+
+export const DeliverySlabScalarFieldEnum = {
+  id: 'id',
+  minDistance: 'minDistance',
+  maxDistance: 'maxDistance',
+  charge: 'charge',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DeliverySlabScalarFieldEnum = (typeof DeliverySlabScalarFieldEnum)[keyof typeof DeliverySlabScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -3007,6 +3097,7 @@ export type GlobalOmitConfig = {
   helpSettings?: Prisma.HelpSettingsOmit
   offlineMap?: Prisma.OfflineMapOmit
   webhookEvent?: Prisma.WebhookEventOmit
+  deliverySlab?: Prisma.DeliverySlabOmit
 }
 
 /* Types for Logging */

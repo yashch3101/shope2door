@@ -99,6 +99,18 @@ export class OrderController {
     );
   }
 
+  @Get('admin/:id')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(UserRole.ADMIN)
+  async getAdminOrderById(
+    @Param('id') orderId: string,
+  ) {
+    return this.orderService.getAdminOrderById(orderId);
+  }
+
   @Patch('admin/:id/status')
   @UseGuards(
     JwtAuthGuard,

@@ -841,6 +841,8 @@ export class AuthService {
     const cleanPhone = phone.trim();
     const cleanOtp = otp.trim();
 
+    console.log("🔍 Incoming Phone:", cleanPhone, "OTP:", cleanOtp);
+
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
       throw new BadRequestException(
         'Please enter a valid 10-digit mobile number.',
@@ -860,6 +862,8 @@ export class AuthService {
           isActive: true,
         },
       });
+
+      console.log("👤 Found User:", user ? user.id : "Not Found");
 
     if (!user) {
       throw new UnauthorizedException(
@@ -887,6 +891,8 @@ export class AuthService {
           createdAt: 'desc',
         },
       });
+
+      console.log("📦 Active Challenges Count:", challenge ? 1 : 0);
 
     if (!challenge) {
       throw new UnauthorizedException(

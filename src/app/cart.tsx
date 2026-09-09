@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Ionicons,
   Feather,
@@ -37,6 +37,8 @@ import type {
   CartSummary,
 } from '../services/cart.api';
 
+import { BlurView } from 'expo-blur';
+
 import { getAppSettings, AppSettings } from '../services/settings.api';
 
 import { getAccessToken } from '../services/auth.storage';
@@ -46,8 +48,24 @@ const { width } = Dimensions.get('window');
 export default function CartScreen() {
   const router = useRouter();
 
+  const insets = useSafeAreaInsets();
+
+  // =====================================================
+  // CUSTOM ANIMATED ALERT STATE
+  // =====================================================
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
+
   // VPS ka live ngrok domain (api/v1 ke bina)
-  const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  const IMAGE_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
   const getCartImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
@@ -131,12 +149,7 @@ export default function CartScreen() {
           error,
         );
 
-        Alert.alert(
-          'Unable to load cart',
-          error instanceof Error
-            ? error.message
-            : 'Something went wrong. Please try again.',
-        );
+        showCustomAlert('Unable to load cart', error instanceof Error ? error.message : 'Something went wrong. Please try again.', 'error');
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -184,10 +197,7 @@ export default function CartScreen() {
     }
 
     if (quantity > item.stock) {
-      Alert.alert(
-        'Stock limit reached',
-        `Only ${item.stock} units are available.`,
-      );
+      showCustomAlert('Stock limit reached', `Only ${item.stock} units are available.`, 'warning');
 
       return;
     }
@@ -219,12 +229,7 @@ export default function CartScreen() {
         error,
       );
 
-      Alert.alert(
-        'Unable to update cart',
-        error instanceof Error
-          ? error.message
-          : 'Something went wrong. Please try again.',
-      );
+      showCustomAlert('Unable to update cart', error instanceof Error ? error.message : 'Something went wrong. Please try again.', 'error');
     } finally {
       setUpdatingProductId(null);
     }
@@ -293,12 +298,7 @@ export default function CartScreen() {
         error,
       );
 
-      Alert.alert(
-        'Unable to remove item',
-        error instanceof Error
-          ? error.message
-          : 'Something went wrong. Please try again.',
-      );
+      showCustomAlert('Unable to remove item', error instanceof Error ? error.message : 'Something went wrong. Please try again.', 'error');
     } finally {
       setRemovingProductId(null);
     }
@@ -308,55 +308,30 @@ export default function CartScreen() {
   // CLEAR CART
   // =====================================================
 
-  const handleClearCart = () => {
-    if (cartItems.length === 0) {
+  const handleClearCart = async () => {
+    if (cartItems.length === 0 || clearing) {
       return;
     }
 
-    Alert.alert(
-      'Clear Cart',
-      'Are you sure you want to remove all items from your cart?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setClearing(true);
+    try {
+      setClearing(true);
+      await clearCart();
 
-              await clearCart();
+      setCartItems([]);
+      setSummary({
+        totalItems: 0,
+        subtotal: 0,
+        totalMrp: 0,
+        totalSavings: 0,
+      });
 
-              setCartItems([]);
-
-              setSummary({
-                totalItems: 0,
-                subtotal: 0,
-                totalMrp: 0,
-                totalSavings: 0,
-              });
-            } catch (error) {
-              console.error(
-                'Failed to clear cart:',
-                error,
-              );
-
-              Alert.alert(
-                'Unable to clear cart',
-                error instanceof Error
-                  ? error.message
-                  : 'Something went wrong. Please try again.',
-              );
-            } finally {
-              setClearing(false);
-            }
-          },
-        },
-      ],
-    );
+      showCustomAlert('Cart Cleared', 'All items have been removed from your cart.', 'success');
+    } catch (error) {
+      console.error('Failed to clear cart:', error);
+      showCustomAlert('Unable to clear cart', error instanceof Error ? error.message : 'Something went wrong. Please try again.', 'error');
+    } finally {
+      setClearing(false);
+    }
   };
 
   // =====================================================
@@ -369,15 +344,12 @@ export default function CartScreen() {
     }
 
     if (isStoreClosed) {
-      Alert.alert('Store Closed', storeClosedMessage);
+      showCustomAlert('Store Closed', storeClosedMessage, 'warning');
       return;
     }
 
     if (itemTotal < minimumOrderAmount) {
-      Alert.alert(
-        'Minimum Order Required',
-        `Minimum order amount is ₹${minimumOrderAmount}. Please add ₹${minimumOrderAmount - itemTotal} more to proceed.`
-      );
+      showCustomAlert('Minimum Order Required', `Minimum order amount is ₹${minimumOrderAmount}. Please add ₹${minimumOrderAmount - itemTotal} more to proceed.`, 'warning');
       return;
     }
 
@@ -385,22 +357,7 @@ export default function CartScreen() {
       const token = await getAccessToken();
 
       if (!token) {
-        Alert.alert(
-          'Login Required',
-          'Please login to continue with checkout.',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Login',
-              onPress: () => {
-                router.push('/');
-              },
-            },
-          ],
-        );
+        showCustomAlert('Login Required', 'Please login to continue with checkout.', 'warning');
 
         return;
       }
@@ -412,10 +369,7 @@ export default function CartScreen() {
         error,
       );
 
-      Alert.alert(
-        'Checkout',
-        'Unable to continue to checkout. Please try again.',
-      );
+      showCustomAlert('Checkout', 'Unable to continue to checkout. Please try again.', 'error');
     }
   };
 
@@ -425,15 +379,20 @@ export default function CartScreen() {
 
   const itemTotal = Number(summary.subtotal) || 0;
 
-  const dynamicDeliveryCharge = Number(appSettings?.delivery?.deliveryCharge) || 40;
-  const dynamicFreeAbove = Number(appSettings?.delivery?.freeDeliveryAbove) || 200;
+  const handlingFee = cartItems.length > 0 ? 5 : 0;
+  const grandTotal = itemTotal + handlingFee;
+
   const minimumOrderAmount = Number(appSettings?.delivery?.minimumOrderAmount) || 0;
   const isStoreClosed = appSettings?.store?.isClosed ?? false;
   const storeClosedMessage = appSettings?.store?.closedMessage ?? 'We are currently closed for orders.';
 
-  const deliveryFee = itemTotal >= dynamicFreeAbove || itemTotal === 0 ? 0 : dynamicDeliveryCharge;
-  const handlingFee = cartItems.length > 0 ? 5 : 0;
-  const grandTotal = itemTotal + deliveryFee + handlingFee;
+  // =====================================================
+  // FREE DELIVERY UPSALE LOGIC
+  // =====================================================
+  const freeDeliveryThreshold = Number((appSettings?.delivery as any)?.freeDeliveryAbove) || 200;
+  const amountNeededForFreeDelivery = Math.max(0, freeDeliveryThreshold - itemTotal);
+  const freeDeliveryProgress = Math.min((itemTotal / freeDeliveryThreshold) * 100, 100);
+
 
   // =====================================================
   // LOADING SCREEN
@@ -975,24 +934,8 @@ export default function CartScreen() {
                   </Text>
                 </View>
 
-                <Text
-                  style={
-                    styles.billValue
-                  }
-                >
-                  {deliveryFee ===
-                  0 ? (
-                    <Text
-                      style={{
-                        color:
-                          '#10B981',
-                      }}
-                    >
-                      FREE
-                    </Text>
-                  ) : (
-                    `₹${deliveryFee}`
-                  )}
+                <Text style={[styles.billValue, { color: '#D97706', fontSize: 12 }]}>
+                  Calculated at checkout
                 </Text>
               </View>
 
@@ -1063,72 +1006,112 @@ export default function CartScreen() {
               CHECKOUT BAR
           ================================================= */}
 
-          <MotiView
-            from={{
-              translateY: 100,
-            }}
-            animate={{
-              translateY: 0,
-            }}
-            transition={{
-              type: 'spring',
-              delay: 500,
-            }}
-            style={
-              styles.checkoutBar
-            }
-          >
-            <View
-              style={
-                styles.checkoutInfo
-              }
-            >
-              <Text
-                style={
-                  styles.checkoutTotal
-                }
-              >
-                ₹{grandTotal}
-              </Text>
+          {/* =================================================
+              BOTTOM BAR & FREE DELIVERY BANNER
+          ================================================= */}
 
-              <Text
-                style={
-                  styles.checkoutSubText
-                }
-              >
-                TOTAL
-              </Text>
+          <MotiView
+            from={{ translateY: 150 }}
+            animate={{ translateY: 0 }}
+            transition={{ type: 'spring', delay: 500 }}
+            style={[
+              styles.bottomFixedContainer,
+              { paddingBottom: Math.max(insets.bottom + 10, 20) }
+            ]}
+          >
+            {/* --- FREE DELIVERY UPSALE BANNER --- */}
+            <View style={styles.freeDeliveryWrapper}>
+              <View style={styles.freeDeliveryTextRow}>
+                {amountNeededForFreeDelivery > 0 ? (
+                  <Text style={styles.freeDeliveryText}>
+                    Add <Text style={{fontWeight: '900'}}>₹{amountNeededForFreeDelivery.toFixed(0)}</Text> more to get <Text style={{fontWeight: '900'}}>FREE Delivery</Text>
+                  </Text>
+                ) : (
+                  <Text style={styles.freeDeliverySuccessText}>
+                    🎉 Free Delivery Unlocked!
+                  </Text>
+                )}
+              </View>
+              
+              <View style={styles.freeDeliveryProgressBg}>
+                <MotiView
+                  animate={{ width: `${freeDeliveryProgress}%` }}
+                  transition={{ type: 'timing', duration: 600 }}
+                  style={[
+                    styles.freeDeliveryProgressFill,
+                    amountNeededForFreeDelivery === 0 && { backgroundColor: '#10B981' }
+                  ]}
+                />
+              </View>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.checkoutBtn,
-                isStoreClosed && { backgroundColor: '#9CA3AF' }
-              ]}
-              activeOpacity={0.8}
-              onPress={
-                handleCheckout
-              }
-            >
-              <Text
-                style={
-                  styles.checkoutBtnText
-                }
-              >
-                {isStoreClosed ? 'Store Closed' : 'Proceed to Pay'}
-              </Text>
+            {/* --- EXISTING CHECKOUT BAR --- */}
+            <View style={styles.checkoutBarInner}>
+              <View style={styles.checkoutInfo}>
+                <Text style={styles.checkoutTotal}>₹{grandTotal}</Text>
+                <Text style={styles.checkoutSubText}>TOTAL</Text>
+              </View>
 
-              {!isStoreClosed && (
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color="#1F2937"
-                />
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.checkoutBtn,
+                  isStoreClosed && { backgroundColor: '#9CA3AF' }
+                ]}
+                activeOpacity={0.8}
+                onPress={handleCheckout}
+              >
+                <Text style={styles.checkoutBtnText}>
+                  {isStoreClosed ? 'Store Closed' : 'Proceed to Pay'}
+                </Text>
+
+                {!isStoreClosed && (
+                  <Ionicons name="chevron-forward" size={20} color="#1F2937" />
+                )}
+              </TouchableOpacity>
+            </View>
           </MotiView>
         </View>
       )}
+
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
     </SafeAreaView>
   );
 }
@@ -1476,5 +1459,81 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginRight: 4,
+  },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+
+  bottomFixedContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 15,
+  },
+
+  freeDeliveryWrapper: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderBottomWidth: 0,
+  },
+
+  freeDeliveryTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+
+  freeDeliveryText: {
+    color: '#065F46',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  freeDeliverySuccessText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  freeDeliveryProgressBg: {
+    height: 6,
+    backgroundColor: '#D1FAE5',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+
+  freeDeliveryProgressFill: {
+    height: '100%',
+    backgroundColor: '#34D399', 
+    borderRadius: 3,
+  },
+
+  checkoutBarInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFF',
   },
 });

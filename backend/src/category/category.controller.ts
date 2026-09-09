@@ -7,7 +7,13 @@ import {
   Patch,
   Post,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 import { CategoryService } from './category.service';
 
@@ -26,6 +32,40 @@ export class CategoryController {
   constructor(
     private readonly categoryService: CategoryService,
   ) {}
+
+  // =====================================================
+  // ADMIN
+  // POST /api/v1/categories/upload (IMAGE UPLOAD)
+  // =====================================================
+
+  @Post('upload')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `category-${uniqueSuffix}${ext}`);
+        },
+      }),
+    }),
+  )
+  uploadCategoryIcon(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is missing');
+    }
+    return {
+      success: true,
+      message: 'Image uploaded successfully',
+      path: file.filename,
+    };
+  }
 
   // =====================================================
   // CUSTOMER

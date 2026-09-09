@@ -13,7 +13,9 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
-import { MotiView } from 'moti';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MotiView, AnimatePresence } from 'moti';
+import { BlurView } from 'expo-blur';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
@@ -35,12 +37,28 @@ import type {
 
 const { width, height } = Dimensions.get('window');
 
-const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+
+  const insets = useSafeAreaInsets();
+
+  // =====================================================
+  // CUSTOM ANIMATED ALERT STATE
+  // =====================================================
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
 
   const productId = params.id
     ? String(params.id)
@@ -177,10 +195,7 @@ export default function ProductDetailsScreen() {
     }
 
     if (product.stock <= 0) {
-      Alert.alert(
-        'Out of Stock',
-        'This product is currently unavailable.',
-      );
+      showCustomAlert('Out of Stock', 'This product is currently unavailable.', 'warning');
       return;
     }
 
@@ -193,9 +208,9 @@ export default function ProductDetailsScreen() {
 
       await addToCart(product.id, 1);
 
-      Alert.alert(
+      showCustomAlert(
         'Added to Cart',
-        `${product.name} has been added to your cart.`,
+        `${product.name} has been added to your cart.`, 'success'
       );
     } catch (error) {
       console.error(
@@ -203,11 +218,11 @@ export default function ProductDetailsScreen() {
         error,
       );
 
-      Alert.alert(
+      showCustomAlert(
         'Unable to Add',
         error instanceof Error
           ? error.message
-          : 'Unable to add product to cart.',
+          : 'Unable to add product to cart.', 'error'
       );
     } finally {
       setAddingToCart(false);
@@ -252,11 +267,11 @@ export default function ProductDetailsScreen() {
       error,
     );
 
-    Alert.alert(
+    showCustomAlert(
       'Wishlist',
       error instanceof Error
         ? error.message
-        : 'Unable to update wishlist.',
+        : 'Unable to update wishlist.', 'error'
     );
   } finally {
     setWishlistLoading(prev => ({
@@ -309,11 +324,11 @@ export default function ProductDetailsScreen() {
       error,
     );
 
-    Alert.alert(
+    showCustomAlert(
       'Wishlist',
       error instanceof Error
         ? error.message
-        : 'Unable to update wishlist.',
+        : 'Unable to update wishlist.', 'error'
     );
   } finally {
     setWishlistLoading(prev => ({
@@ -670,9 +685,9 @@ export default function ProductDetailsScreen() {
                   activeOpacity={0.8}
                   onPress={async () => {
                     if (item.stock <= 0) {
-                      Alert.alert(
+                      showCustomAlert(
                         'Out of Stock',
-                        'This product is currently unavailable.',
+                        'This product is currently unavailable.', 'warning'
                       );
                       return;
                     }
@@ -680,9 +695,9 @@ export default function ProductDetailsScreen() {
                     try {
                       await addToCart(item.id, 1);
 
-                      Alert.alert(
+                      showCustomAlert(
                         'Added to Cart',
-                        `${item.name} has been added to your cart.`,
+                        `${item.name} has been added to your cart.`, 'success'
                       );
                     } catch (error) {
                       console.error(
@@ -690,11 +705,12 @@ export default function ProductDetailsScreen() {
                         error,
                       );
 
-                      Alert.alert(
+                      showCustomAlert(
                         'Unable to Add',
                         error instanceof Error
                           ? error.message
                           : 'Unable to add product to cart.',
+                        'error'
                       );
                     }
                   }}
@@ -721,7 +737,10 @@ export default function ProductDetailsScreen() {
         from={{ translateY: 100 }} 
         animate={{ translateY: 0 }} 
         transition={{ type: 'spring', delay: 500, damping: 20 }}
-        style={styles.bottomActionBar}
+        style={[
+          styles.bottomActionBar,
+          { paddingBottom: Math.max(insets.bottom + 10, 25) }
+        ]}
       >
         <TouchableOpacity
           style={[
@@ -751,9 +770,9 @@ export default function ProductDetailsScreen() {
             }
 
             if (product.stock <= 0) {
-              Alert.alert(
+              showCustomAlert(
                 'Out of Stock',
-                'This product is currently unavailable.',
+                'This product is currently unavailable.', 'warning'
               );
               return;
             }
@@ -770,11 +789,11 @@ export default function ProductDetailsScreen() {
                 error,
               );
 
-              Alert.alert(
+              showCustomAlert(
                 'Unable to Continue',
                 error instanceof Error
                   ? error.message
-                  : 'Unable to add product to cart.',
+                  : 'Unable to add product to cart.', 'error'
               );
             } finally {
               setAddingToCart(false);
@@ -784,6 +803,46 @@ export default function ProductDetailsScreen() {
           <Text style={styles.buyNowText}>Buy Now</Text>
         </TouchableOpacity>
       </MotiView>
+
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
 
     </View>
   );
@@ -933,4 +992,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

@@ -62,6 +62,8 @@ export class CategoryService {
           sortOrder:
             dto.sortOrder ?? 0,
 
+          parentId: dto.parentId || null,
+
           isActive: true,
         },
 
@@ -73,6 +75,7 @@ export class CategoryService {
           image: true,
           icon: true,
           sortOrder: true,
+          parentId: true,
           isActive: true,
           createdAt: true,
           updatedAt: true,
@@ -91,26 +94,18 @@ export class CategoryService {
     return this.prisma.category.findMany({
       where: {
         isActive: true,
+        parentId: null,
       },
-
       orderBy: [
-        {
-          sortOrder: 'asc',
-        },
-        {
-          name: 'asc',
-        },
+        { sortOrder: 'asc' },
+        { name: 'asc' },
       ],
-
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        image: true,
-        icon: true,
-        sortOrder: true,
-      },
+      include: {
+        subCategories: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' }
+        }
+      }
     });
   }
 
@@ -205,15 +200,12 @@ export class CategoryService {
         slug: normalizedSlug,
         isActive: true,
       },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        image: true,
-        icon: true,
-        sortOrder: true,
-      },
+      include: {
+        subCategories: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' }
+        }
+      }
     });
 
     if (!category) {
@@ -256,6 +248,7 @@ export class CategoryService {
       image?: string | null;
       icon?: string | null;
       sortOrder?: number;
+      parentId?: string | null;
       isActive?: boolean;
     } = {};
 
@@ -335,6 +328,14 @@ export class CategoryService {
     }
 
     // ---------------------------------------------------
+    // PARENT ID (SUB-CATEGORY LINKING)
+    // ---------------------------------------------------
+
+    if (dto.parentId !== undefined) {
+      data.parentId = dto.parentId || null;
+    }
+
+    // ---------------------------------------------------
     // ACTIVE STATUS
     // ---------------------------------------------------
 
@@ -358,6 +359,7 @@ export class CategoryService {
           image: true,
           icon: true,
           sortOrder: true,
+          parentId: true,
           isActive: true,
           createdAt: true,
           updatedAt: true,

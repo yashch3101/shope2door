@@ -48,6 +48,10 @@ export class UpdateCategoryDto {
   sortOrder?: number;
 
   @IsOptional()
+  @IsString()
+  parentId?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

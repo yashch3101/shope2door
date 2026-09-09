@@ -31,6 +31,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { OrderScheduler } from './order/order.scheduler';
 
+import { LocationModule } from './location/location.module';
+
 @Module({
   imports: [
 
@@ -123,6 +125,8 @@ import { OrderScheduler } from './order/order.scheduler';
     BannerModule,
 
     SettingsModule,
+
+    LocationModule,
   ],
 
   controllers: [

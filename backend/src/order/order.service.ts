@@ -320,17 +320,64 @@ export class OrderService {
         }
 
         // =================================================
-        // 6. DELIVERY FEE
+        // 6 & 7. DYNAMIC DISTANCE-BASED DELIVERY FEE
         // =================================================
 
-        const deliveryFee = 0;
+        // Database se Settings aur Slabs fetch karo
+        const deliverySettings = await tx.deliverySettings.findFirst();
+        const deliverySlabs = await tx.deliverySlab.findMany({
+          orderBy: { minDistance: 'asc' } // Distance ke hisaab se ascending order
+        });
 
-        // =================================================
-        // 7. TAX
-        // =================================================
+        // Store ki default location agar admin ne set nahi ki hai
+        const STORE_LAT = deliverySettings?.storeLatitude ? Number(deliverySettings.storeLatitude) : 29.8543;
+        const STORE_LON = deliverySettings?.storeLongitude ? Number(deliverySettings.storeLongitude) : 77.8880;
 
-        const tax = 0;
+        let deliveryFee = 0;
         const handlingFee = cart.items.length > 0 ? 5 : 0;
+        const tax = 0;
+
+        if (address.latitude && address.longitude) {
+          const userLat = Number(address.latitude);
+          const userLon = Number(address.longitude);
+
+          // Haversine Formula for accurate distance calculation
+          const R = 6371; 
+          const dLat = (userLat - STORE_LAT) * (Math.PI / 180);
+          const dLon = (userLon - STORE_LON) * (Math.PI / 180);
+          
+          const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(STORE_LAT * (Math.PI / 180)) * Math.cos(userLat * (Math.PI / 180)) * 
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distanceInKm = R * c;
+
+          // Database slabs mein check karo ki distance kis range mein aata hai
+          const matchedSlab = deliverySlabs.find(
+            (slab) => distanceInKm >= Number(slab.minDistance) && distanceInKm <= Number(slab.maxDistance)
+          );
+
+          if (matchedSlab) {
+            deliveryFee = Number(matchedSlab.charge);
+          } else if (deliverySlabs.length > 0) {
+            // Agar distance sabse maximum slab se bhi zyada hai, toh highest slab ka charge laga do
+            deliveryFee = Number(deliverySlabs[deliverySlabs.length - 1].charge);
+          } else {
+            deliveryFee = 15;
+          }
+        } else {
+          deliveryFee = 15;
+        }
+
+        // =================================================
+        // OVERRIDE: FREE DELIVERY THRESHOLD
+        // =================================================
+        const freeDeliveryThreshold = deliverySettings?.freeDeliveryAbove ? Number(deliverySettings.freeDeliveryAbove) : 200;
+        if (subtotal >= freeDeliveryThreshold) {
+          deliveryFee = 0;
+        }
 
         // =================================================
         // 8. FINAL TOTAL
@@ -665,6 +712,42 @@ export class OrderService {
       success: true,
       message: 'Orders fetched successfully',
       data: orders,
+    };
+  }
+
+  // =====================================================
+  // ADMIN — GET SINGLE ORDER BY ID
+  // =====================================================
+
+  async getAdminOrderById(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+      include: {
+        items: true,
+        address: true,
+        payments: true,
+        coupon: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return {
+      success: true,
+      message: 'Order fetched successfully',
+      data: order,
     };
   }
 

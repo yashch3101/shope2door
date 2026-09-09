@@ -1083,4 +1083,61 @@ export class AdminService {
 
     throw error;
   }
+
+  // =====================================================
+  // DAILY REVENUE & PRODUCT REPORT
+  // =====================================================
+
+  async getDailyReport(dateString?: string) {
+    // Default to today if no date is provided
+    const targetDate = dateString ? new Date(dateString) : new Date();
+    // Set time to start and end of the selected day (Indian Time / UTC adjustment)
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    // Fetch all successful orders for that day
+    const orders = await this.prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+        status: {
+          notIn: ['CANCELLED', 'RETURNED', 'REFUNDED'],
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    let totalRevenue = 0;
+    const productSales = new Map<string, { name: string; quantity: number; revenue: number }>();
+
+    for (const order of orders) {
+      totalRevenue += Number(order.total);
+      for (const item of order.items) {
+        const existing = productSales.get(item.productId);
+        const itemTotal = Number(item.total);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.revenue += itemTotal;
+        } else {
+          productSales.set(item.productId, {
+            name: item.productName,
+            quantity: item.quantity,
+            revenue: itemTotal,
+          });
+        }
+      }
+    }
+
+    return {
+      date: startOfDay.toISOString().split('T')[0],
+      totalOrders: orders.length,
+      totalRevenue,
+      // Sort products by quantity sold (highest first)
+      productsSold: Array.from(productSales.values()).sort((a, b) => b.quantity - a.quantity),
+    };
+  }
 }

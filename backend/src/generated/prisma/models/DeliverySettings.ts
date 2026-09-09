@@ -32,6 +32,8 @@ export type DeliverySettingsAvgAggregateOutputType = {
   handlingCharge: runtime.Decimal | null
   freeDeliveryAbove: runtime.Decimal | null
   minimumOrderAmount: runtime.Decimal | null
+  storeLatitude: runtime.Decimal | null
+  storeLongitude: runtime.Decimal | null
 }
 
 export type DeliverySettingsSumAggregateOutputType = {
@@ -40,6 +42,8 @@ export type DeliverySettingsSumAggregateOutputType = {
   handlingCharge: runtime.Decimal | null
   freeDeliveryAbove: runtime.Decimal | null
   minimumOrderAmount: runtime.Decimal | null
+  storeLatitude: runtime.Decimal | null
+  storeLongitude: runtime.Decimal | null
 }
 
 export type DeliverySettingsMinAggregateOutputType = {
@@ -50,6 +54,8 @@ export type DeliverySettingsMinAggregateOutputType = {
   freeDeliveryAbove: runtime.Decimal | null
   minimumOrderAmount: runtime.Decimal | null
   deliveryTime: string | null
+  storeLatitude: runtime.Decimal | null
+  storeLongitude: runtime.Decimal | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -62,6 +68,8 @@ export type DeliverySettingsMaxAggregateOutputType = {
   freeDeliveryAbove: runtime.Decimal | null
   minimumOrderAmount: runtime.Decimal | null
   deliveryTime: string | null
+  storeLatitude: runtime.Decimal | null
+  storeLongitude: runtime.Decimal | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -74,6 +82,8 @@ export type DeliverySettingsCountAggregateOutputType = {
   freeDeliveryAbove: number
   minimumOrderAmount: number
   deliveryTime: number
+  storeLatitude: number
+  storeLongitude: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -86,6 +96,8 @@ export type DeliverySettingsAvgAggregateInputType = {
   handlingCharge?: true
   freeDeliveryAbove?: true
   minimumOrderAmount?: true
+  storeLatitude?: true
+  storeLongitude?: true
 }
 
 export type DeliverySettingsSumAggregateInputType = {
@@ -94,6 +106,8 @@ export type DeliverySettingsSumAggregateInputType = {
   handlingCharge?: true
   freeDeliveryAbove?: true
   minimumOrderAmount?: true
+  storeLatitude?: true
+  storeLongitude?: true
 }
 
 export type DeliverySettingsMinAggregateInputType = {
@@ -104,6 +118,8 @@ export type DeliverySettingsMinAggregateInputType = {
   freeDeliveryAbove?: true
   minimumOrderAmount?: true
   deliveryTime?: true
+  storeLatitude?: true
+  storeLongitude?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -116,6 +132,8 @@ export type DeliverySettingsMaxAggregateInputType = {
   freeDeliveryAbove?: true
   minimumOrderAmount?: true
   deliveryTime?: true
+  storeLatitude?: true
+  storeLongitude?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -128,6 +146,8 @@ export type DeliverySettingsCountAggregateInputType = {
   freeDeliveryAbove?: true
   minimumOrderAmount?: true
   deliveryTime?: true
+  storeLatitude?: true
+  storeLongitude?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -227,6 +247,8 @@ export type DeliverySettingsGroupByOutputType = {
   freeDeliveryAbove: runtime.Decimal | null
   minimumOrderAmount: runtime.Decimal | null
   deliveryTime: string | null
+  storeLatitude: runtime.Decimal | null
+  storeLongitude: runtime.Decimal | null
   createdAt: Date
   updatedAt: Date
   _count: DeliverySettingsCountAggregateOutputType | null
@@ -262,6 +284,8 @@ export type DeliverySettingsWhereInput = {
   freeDeliveryAbove?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.StringNullableFilter<"DeliverySettings"> | string | null
+  storeLatitude?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFilter<"DeliverySettings"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"DeliverySettings"> | Date | string
 }
@@ -274,6 +298,8 @@ export type DeliverySettingsOrderByWithRelationInput = {
   freeDeliveryAbove?: Prisma.SortOrderInput | Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   deliveryTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -289,6 +315,8 @@ export type DeliverySettingsWhereUniqueInput = Prisma.AtLeast<{
   freeDeliveryAbove?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.StringNullableFilter<"DeliverySettings"> | string | null
+  storeLatitude?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.DecimalNullableFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFilter<"DeliverySettings"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"DeliverySettings"> | Date | string
 }, "id" | "legacyId">
@@ -301,6 +329,8 @@ export type DeliverySettingsOrderByWithAggregationInput = {
   freeDeliveryAbove?: Prisma.SortOrderInput | Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   deliveryTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.DeliverySettingsCountOrderByAggregateInput
@@ -321,6 +351,8 @@ export type DeliverySettingsScalarWhereWithAggregatesInput = {
   freeDeliveryAbove?: Prisma.DecimalNullableWithAggregatesFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.DecimalNullableWithAggregatesFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.StringNullableWithAggregatesFilter<"DeliverySettings"> | string | null
+  storeLatitude?: Prisma.DecimalNullableWithAggregatesFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.DecimalNullableWithAggregatesFilter<"DeliverySettings"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"DeliverySettings"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"DeliverySettings"> | Date | string
 }
@@ -333,6 +365,8 @@ export type DeliverySettingsCreateInput = {
   freeDeliveryAbove?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: string | null
+  storeLatitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -345,6 +379,8 @@ export type DeliverySettingsUncheckedCreateInput = {
   freeDeliveryAbove?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: string | null
+  storeLatitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -357,6 +393,8 @@ export type DeliverySettingsUpdateInput = {
   freeDeliveryAbove?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeLatitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -369,6 +407,8 @@ export type DeliverySettingsUncheckedUpdateInput = {
   freeDeliveryAbove?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeLatitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -381,6 +421,8 @@ export type DeliverySettingsCreateManyInput = {
   freeDeliveryAbove?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: string | null
+  storeLatitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -393,6 +435,8 @@ export type DeliverySettingsUpdateManyMutationInput = {
   freeDeliveryAbove?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeLatitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -405,6 +449,8 @@ export type DeliverySettingsUncheckedUpdateManyInput = {
   freeDeliveryAbove?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   minimumOrderAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   deliveryTime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeLatitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  storeLongitude?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -417,6 +463,8 @@ export type DeliverySettingsCountOrderByAggregateInput = {
   freeDeliveryAbove?: Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrder
   deliveryTime?: Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -427,6 +475,8 @@ export type DeliverySettingsAvgOrderByAggregateInput = {
   handlingCharge?: Prisma.SortOrder
   freeDeliveryAbove?: Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrder
 }
 
 export type DeliverySettingsMaxOrderByAggregateInput = {
@@ -437,6 +487,8 @@ export type DeliverySettingsMaxOrderByAggregateInput = {
   freeDeliveryAbove?: Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrder
   deliveryTime?: Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -449,6 +501,8 @@ export type DeliverySettingsMinOrderByAggregateInput = {
   freeDeliveryAbove?: Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrder
   deliveryTime?: Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -459,6 +513,8 @@ export type DeliverySettingsSumOrderByAggregateInput = {
   handlingCharge?: Prisma.SortOrder
   freeDeliveryAbove?: Prisma.SortOrder
   minimumOrderAmount?: Prisma.SortOrder
+  storeLatitude?: Prisma.SortOrder
+  storeLongitude?: Prisma.SortOrder
 }
 
 
@@ -471,6 +527,8 @@ export type DeliverySettingsSelect<ExtArgs extends runtime.Types.Extensions.Inte
   freeDeliveryAbove?: boolean
   minimumOrderAmount?: boolean
   deliveryTime?: boolean
+  storeLatitude?: boolean
+  storeLongitude?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["deliverySettings"]>
@@ -483,6 +541,8 @@ export type DeliverySettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   freeDeliveryAbove?: boolean
   minimumOrderAmount?: boolean
   deliveryTime?: boolean
+  storeLatitude?: boolean
+  storeLongitude?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["deliverySettings"]>
@@ -495,6 +555,8 @@ export type DeliverySettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   freeDeliveryAbove?: boolean
   minimumOrderAmount?: boolean
   deliveryTime?: boolean
+  storeLatitude?: boolean
+  storeLongitude?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["deliverySettings"]>
@@ -507,11 +569,13 @@ export type DeliverySettingsSelectScalar = {
   freeDeliveryAbove?: boolean
   minimumOrderAmount?: boolean
   deliveryTime?: boolean
+  storeLatitude?: boolean
+  storeLongitude?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type DeliverySettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "legacyId" | "deliveryCharge" | "handlingCharge" | "freeDeliveryAbove" | "minimumOrderAmount" | "deliveryTime" | "createdAt" | "updatedAt", ExtArgs["result"]["deliverySettings"]>
+export type DeliverySettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "legacyId" | "deliveryCharge" | "handlingCharge" | "freeDeliveryAbove" | "minimumOrderAmount" | "deliveryTime" | "storeLatitude" | "storeLongitude" | "createdAt" | "updatedAt", ExtArgs["result"]["deliverySettings"]>
 
 export type $DeliverySettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "DeliverySettings"
@@ -524,6 +588,8 @@ export type $DeliverySettingsPayload<ExtArgs extends runtime.Types.Extensions.In
     freeDeliveryAbove: runtime.Decimal | null
     minimumOrderAmount: runtime.Decimal | null
     deliveryTime: string | null
+    storeLatitude: runtime.Decimal | null
+    storeLongitude: runtime.Decimal | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["deliverySettings"]>
@@ -956,6 +1022,8 @@ export interface DeliverySettingsFieldRefs {
   readonly freeDeliveryAbove: Prisma.FieldRef<"DeliverySettings", 'Decimal'>
   readonly minimumOrderAmount: Prisma.FieldRef<"DeliverySettings", 'Decimal'>
   readonly deliveryTime: Prisma.FieldRef<"DeliverySettings", 'String'>
+  readonly storeLatitude: Prisma.FieldRef<"DeliverySettings", 'Decimal'>
+  readonly storeLongitude: Prisma.FieldRef<"DeliverySettings", 'Decimal'>
   readonly createdAt: Prisma.FieldRef<"DeliverySettings", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"DeliverySettings", 'DateTime'>
 }

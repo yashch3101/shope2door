@@ -15,16 +15,24 @@ import {
   Alert,
   RefreshControl,
   Image,
+  Dimensions,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { addToCart } from '../services/cart.api';
+
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { getAppSettings, AppSettings } from '../services/settings.api';
 
 import {
   Ionicons,
   Feather,
 } from '@expo/vector-icons';
 
-import { MotiView } from 'moti';
+import { MotiView, AnimatePresence } from 'moti';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 import {
   useLocalSearchParams,
@@ -81,7 +89,7 @@ function formatDate(
   });
 }
 
-const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const IMAGE_BASE_URL = 'http://40.40.1.142:3000/api/v1';
 
 function getOrderImageUrl(imagePath?: string): string | null {
   if (!imagePath) return null;
@@ -170,6 +178,22 @@ function getPaymentText(
 export default function OrderDetailsScreen() {
   const router = useRouter();
 
+  const insets = useSafeAreaInsets();
+
+  // =====================================================
+  // CUSTOM ANIMATED ALERT STATE
+  // =====================================================
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setAlertConfig({ visible: true, title, message, type });
+  };
+
   const params =
     useLocalSearchParams<{
       orderId?: string | string[];
@@ -187,6 +211,50 @@ export default function OrderDetailsScreen() {
 
   const [error, setError] =
     useState<string | null>(null);
+
+  const [reordering, setReordering] = useState(false);
+
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const settingsRes = await getAppSettings();
+      if (settingsRes.success && settingsRes.data) {
+        setAppSettings(settingsRes.data);
+      }
+    } catch (err) {
+      console.log('Failed to load settings:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const handleReorder = async () => {
+    if (reordering || !items || items.length === 0) return;
+    
+    try {
+      setReordering(true);
+      for (const item of items) {
+        const productId = item.productId || (item as any).product?.id;
+        if (productId) {
+          await addToCart(productId, item.quantity || 1);
+        }
+      }
+      
+      showCustomAlert('Success', 'Items added to cart.', 'success');
+      setTimeout(() => {
+        router.push('/cart');
+      }, 1000);
+      
+    } catch (err: any) {
+      console.log('Reorder failed:', err);
+      showCustomAlert('Reorder Failed', 'Unable to add items to cart.', 'error');
+    } finally {
+      setReordering(false);
+    }
+  };
 
   const [refreshing, setRefreshing] =
   useState(false);
@@ -411,13 +479,21 @@ export default function OrderDetailsScreen() {
   const discount =
     toNumber(order.discount);
 
-  const deliveryFee =
-    toNumber(order.deliveryFee);
+  const freeDeliveryThreshold = Number((appSettings?.delivery as any)?.freeDeliveryAbove) || 200;
+  
+  const deliveryFee = 
+    itemTotal >= freeDeliveryThreshold ? 0 : toNumber(order.deliveryFee);
 
   const tax =
     toNumber(order.tax);
 
-  const handlingFee = items.length > 0 ? 5 : 0;
+  // FIX: Using || instead of ?? so if backend sends 0 or null, it safely falls back to 5
+  const handlingFee = toNumber((order as any).handlingFee) || toNumber((order as any).handlingCharge) || (items.length > 0 ? 5 : 0);
+
+  const calculatedTotal = Math.max(
+    0,
+    itemTotal - discount + deliveryFee + handlingFee + tax
+  );
 
   const canCancelOrder =
     !isCancelled &&
@@ -462,10 +538,10 @@ export default function OrderDetailsScreen() {
                     : currentOrder,
                 );
 
-                Alert.alert(
+                showCustomAlert(
                   'Order Cancelled',
-                  response.message ||
-                    'Your order has been cancelled successfully.',
+                  response.message || 'Your order has been cancelled successfully.',
+                  'success'
                 );
               } else {
                 throw new Error(
@@ -479,10 +555,10 @@ export default function OrderDetailsScreen() {
                 err,
               );
 
-              Alert.alert(
+              showCustomAlert(
                 'Unable to Cancel',
-                err?.message ||
-                  'Unable to cancel the order right now. Please try again.',
+                err?.message || 'Unable to cancel the order right now. Please try again.',
+                'error'
               );
             } finally {
               setCancelling(false);
@@ -540,9 +616,10 @@ export default function OrderDetailsScreen() {
           style={styles.helpBtn}
           activeOpacity={0.7}
           onPress={() =>
-            Alert.alert(
+            showCustomAlert(
               'Help',
               'For any issue with your order, please contact support.',
+              'info'
             )
           }
         >
@@ -997,7 +1074,7 @@ export default function OrderDetailsScreen() {
                 }
               >
                 {formatMoney(
-                  order.total,
+                  calculatedTotal,
                 )}
               </Text>
             </View>
@@ -1187,33 +1264,68 @@ export default function OrderDetailsScreen() {
           type: 'spring',
           delay: 700,
         }}
-        style={styles.bottomBar}
+        style={[
+          styles.bottomBar,
+          { paddingBottom: Math.max(insets.bottom + 10, 25) }
+        ]}
       >
         <TouchableOpacity
-          style={styles.reorderBtn}
+          style={[styles.reorderBtn, reordering && { opacity: 0.7 }]}
           activeOpacity={0.8}
-          onPress={() =>
-            router.push('/cart')
-          }
+          onPress={handleReorder}
+          disabled={reordering}
         >
-          <Feather
-            name="refresh-cw"
-            size={18}
-            color="#1F2937"
-            style={{
-              marginRight: 8,
-            }}
-          />
-
-          <Text
-            style={
-              styles.reorderBtnText
-            }
-          >
-            Reorder Items
-          </Text>
+          {reordering ? (
+            <ActivityIndicator size="small" color="#1F2937" />
+          ) : (
+            <>
+              <Feather name="refresh-cw" size={18} color="#1F2937" style={{ marginRight: 8 }} />
+              <Text style={styles.reorderBtnText}>Reorder Items</Text>
+            </>
+          )}
         </TouchableOpacity>
       </MotiView>
+
+      {/* CUSTOM ANIMATED ALERT MODAL - OPTIMIZED FOR NO FREEZE */}
+      <AnimatePresence>
+        {alertConfig.visible && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 10000, elevation: 1000, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
+            {/* BlurView ki jagah simple performance-friendly background use kiya hai */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} 
+              onPress={() => setAlertConfig({ ...alertConfig, visible: false })} 
+            />
+            
+            <MotiView 
+              from={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              animate={{ scale: 1, opacity: 1, translateY: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, translateY: 20 }} 
+              transition={{ type: 'timing', duration: 200 }} 
+              style={styles.customAlertBox}
+            >
+              <View style={[styles.alertIconCircle, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}>
+                <Ionicons 
+                  name={alertConfig.type === 'error' ? 'close' : alertConfig.type === 'success' ? 'checkmark' : alertConfig.type === 'warning' ? 'warning' : 'information'} 
+                  size={32} 
+                  color="#FFF" 
+                />
+              </View>
+              <Text style={styles.customAlertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.customAlertMessage}>{alertConfig.message}</Text>
+              
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.customAlertButton, alertConfig.type === 'error' ? styles.alertIconError : alertConfig.type === 'success' ? styles.alertIconSuccess : alertConfig.type === 'warning' ? styles.alertIconWarning : styles.alertIconInfo]}
+                onPress={() => setAlertConfig({ ...alertConfig, visible: false })}
+              >
+                <Text style={styles.customAlertButtonText}>Okay</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </View>
+        )}
+      </AnimatePresence>
+
     </SafeAreaView>
   );
 }
@@ -1799,4 +1911,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
+
+  customAlertBox: { width: width * 0.85, backgroundColor: '#FFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 25 },
+  alertIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  alertIconSuccess: { backgroundColor: '#10B981' },
+  alertIconError: { backgroundColor: '#EF4444' },
+  alertIconWarning: { backgroundColor: '#F59E0B' },
+  alertIconInfo: { backgroundColor: '#3B82F6' },
+  customAlertTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });
