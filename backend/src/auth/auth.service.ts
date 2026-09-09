@@ -140,7 +140,7 @@ export class AuthService {
         method: 'GET',
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as any;
 
       if (!response.ok || result?.return === false) {
         console.error('Fast2SMS Error:', result);
