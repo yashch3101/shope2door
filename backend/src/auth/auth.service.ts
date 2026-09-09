@@ -11,10 +11,6 @@ import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
 
-import * as admin from 'firebase-admin';
-import * as path from 'path';
-import * as fs from 'fs';
-
 import type { SignOptions } from 'jsonwebtoken';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -32,16 +28,6 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {
     this.validateJwtConfiguration();
-
-    if (!admin.apps.length) {
-      // process.cwd() hamesha project ka root folder (backend) nikalta hai
-      const serviceAccountPath = path.join(process.cwd(), 'serviceAccountKey.json');
-      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-      
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-    }
   }
 
   // =====================================================
@@ -131,13 +117,11 @@ export class AuthService {
   }
 
   // =====================================================
-  // FAST2SMS OTP DELIVERY (KEPT AS BACKUP)
+  // FAST2SMS OTP DELIVERY (BINA DLT WALA ROUTE)
   // =====================================================
-
   private async sendOtpSms(
     phone: string,
     otp: string,
-    purpose: 'registration' | 'login',
   ): Promise<void> {
     const apiKey = process.env.FAST2SMS_API_KEY?.trim();
 
@@ -145,38 +129,25 @@ export class AuthService {
       throw new ServiceUnavailableException('SMS service is not configured');
     }
 
-    const message =
-      purpose === 'registration'
-        ? `Your Shop2Door registration OTP is ${otp}. It is valid for 5 minutes.`
-        : `Your Shop2Door login OTP is ${otp}. It is valid for 5 minutes.`;
-
     try {
       const url = new URL('https://www.fast2sms.com/dev/bulkV2');
-      url.searchParams.set('route', 'q');
-      url.searchParams.set('message', message);
+      url.searchParams.set('authorization', apiKey);
+      url.searchParams.set('variables_values', otp);
+      url.searchParams.set('route', 'otp');
       url.searchParams.set('numbers', phone);
 
       const response = await fetch(url.toString(), {
         method: 'GET',
-        headers: {
-          Authorization: apiKey,
-          Accept: 'application/json',
-        },
       });
 
-      const responseText = await response.text();
-      let result: any = null;
-
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        result = null;
-      }
+      const result = await response.json();
 
       if (!response.ok || result?.return === false) {
+        console.error('Fast2SMS Error:', result);
         throw new Error('Fast2SMS rejected the OTP request');
       }
     } catch (error) {
+      console.error('SMS Error:', error);
       throw new ServiceUnavailableException('Unable to send OTP. Please try again later.');
     }
   }
@@ -272,7 +243,7 @@ export class AuthService {
     }
 
     try {
-      await this.sendOtpSms(phone, otp, 'registration');
+      await this.sendOtpSms(phone, otp);
     } catch (error) {
       await this.prisma.legacyOtpChallenge.deleteMany({
         where: { userId, consumedAt: null },
@@ -427,7 +398,7 @@ export class AuthService {
     }
 
     try {
-      await this.sendOtpSms(cleanPhone, otp, 'login');
+      await this.sendOtpSms(cleanPhone, otp);
     } catch (error) {
       await this.prisma.legacyOtpChallenge.deleteMany({
         where: { userId: user.id, consumedAt: null },
@@ -646,124 +617,5 @@ export class AuthService {
       where: { id: userId },
       data: { refreshTokenHash: hash },
     });
-  }
-
-  // =====================================================
-  // FIREBASE LOGIN VERIFICATION
-  // =====================================================
-
-  async verifyFirebaseLogin(firebaseToken: string) {
-    let decodedToken;
-    try {
-      decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-    } catch (err) {
-      throw new UnauthorizedException('Invalid or expired Firebase token');
-    }
-
-    const phone = decodedToken.phone_number?.replace('+91', '');
-    if (!phone) {
-      throw new BadRequestException('Phone number missing in Firebase token');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: { phone, isActive: true },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Account not found or inactive. Please register first.');
-    }
-
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-      },
-      ...tokens,
-    };
-  }
-
-  // =====================================================
-  // FIREBASE REGISTER VERIFICATION
-  // =====================================================
-
-  async verifyFirebaseRegister(firebaseToken: string, dto: RegisterDto) {
-    let decodedToken;
-    try {
-      decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-    } catch (err) {
-      throw new UnauthorizedException('Invalid or expired Firebase token');
-    }
-
-    const phone = decodedToken.phone_number?.replace('+91', '');
-    if (!phone) {
-      throw new BadRequestException('Phone number missing in Firebase token');
-    }
-
-    const email = dto.email.trim().toLowerCase();
-
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { phone }],
-      },
-    });
-
-    if (existingUser) {
-      if (existingUser.email === email) {
-        throw new ConflictException('Email is already registered');
-      }
-      if (existingUser.phone === phone && existingUser.isActive) {
-        throw new ConflictException('Phone number is already registered');
-      }
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
-    let user;
-
-    if (existingUser && !existingUser.isActive) {
-      user = await this.prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name: dto.name.trim(),
-          email,
-          password: hashedPassword,
-          isActive: true,
-        },
-      });
-    } else {
-      user = await this.prisma.user.create({
-        data: {
-          name: dto.name.trim(),
-          email,
-          phone,
-          password: hashedPassword,
-          role: UserRole.CUSTOMER,
-          isActive: true,
-        },
-      });
-    }
-
-    const tokens = await this.generateTokens(user.id as string, user.email, user.role as UserRole);
-    await this.updateRefreshTokenHash(user.id as string, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-      },
-      ...tokens,
-    };
   }
 }

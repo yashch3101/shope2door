@@ -194,41 +194,6 @@ export class AuthController {
   }
 
   // =====================================================
-  // FIREBASE LOGIN
-  // POST /api/v1/auth/firebase-login
-  // =====================================================
-
-  @Post('firebase-login')
-  async firebaseLogin(
-    @Body('firebaseToken') firebaseToken: string,
-  ) {
-    const data = await this.authService.verifyFirebaseLogin(firebaseToken);
-    return {
-      success: true,
-      message: 'Login successful via Firebase',
-      data,
-    };
-  }
-
-  // =====================================================
-  // FIREBASE REGISTER
-  // POST /api/v1/auth/firebase-register
-  // =====================================================
-
-  @Post('firebase-register')
-  async firebaseRegister(
-    @Body('firebaseToken') firebaseToken: string,
-    @Body() dto: RegisterDto,
-  ) {
-    const data = await this.authService.verifyFirebaseRegister(firebaseToken, dto);
-    return {
-      success: true,
-      message: 'Registration successful via Firebase',
-      data,
-    };
-  }
-
-  // =====================================================
   // CURRENT USER
   // GET /api/v1/auth/me
   // =====================================================

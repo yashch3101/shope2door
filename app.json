@@ -65,8 +65,6 @@
           "speechRecognitionPermission": "Allow Shope2Door to convert your voice into product search text."
         }
       ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
       "expo-build-properties"
     ],
     "experiments": {
