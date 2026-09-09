@@ -20,6 +20,9 @@ import { MotiView, MotiText, AnimatePresence } from 'moti';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 
+// @ts-ignore
+import auth from '@react-native-firebase/auth';
+
 import * as Location from 'expo-location';
 
 import {
@@ -29,6 +32,8 @@ import {
 
 import {
   getMe,
+  verifyFirebaseLogin,
+  verifyFirebaseRegister,
   requestRegisterOtp,
   verifyRegisterOtp,
   requestLoginOtp,
@@ -101,7 +106,7 @@ function isValidIconUrl(icon?: string | null): boolean {
   return /^https?:\/\/.+/i.test(icon.trim());
 }
 
-const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
 const mapProductToCard = (
   product: Product,
@@ -305,6 +310,7 @@ export default function App() {
   const [registerOtp, setRegisterOtp] = useState('');
   const [registerOtpExpiresIn, setRegisterOtpExpiresIn] = useState<number | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+  const [confirm, setConfirm] = useState<any>(null);
 
   // =====================================================
   // CUSTOM ALERT STATE
@@ -462,116 +468,85 @@ export default function App() {
     }
   };
 
+  // ==========================================
+  // REGISTER: Send OTP via Firebase
+  // ==========================================
   const handleAuthSubmit = async () => {
     if (isSubmitting || registerOtpLoading) return;
     setAuthError('');
-
-    if (authMode !== 'register') {
-      return;
-    }
 
     const cleanName = regName.trim();
     const cleanPhone = regPhone.trim();
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanName) {
-      setAuthError('Please enter your full name.');
-      return;
-    }
-
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    if (!cleanEmail || !password) {
-      setAuthError('Please enter email and password.');
+    if (!cleanName || !/^[6-9]\d{9}$/.test(cleanPhone) || !cleanEmail || !password) {
+      setAuthError('Please fill all details correctly and use a 10-digit number.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const response = await requestRegisterOtp({
-        name: cleanName,
-        phone: cleanPhone,
-        email: cleanEmail,
-        password,
-      });
+      
+      // FIREBASE SE OTP BHEJO (+91 add karna zaroori hai)
+      const confirmation = await auth().signInWithPhoneNumber(`+91${cleanPhone}`);
+      setConfirm(confirmation);
 
       setRegisterOtpSent(true);
       setRegisterOtp('');
-
-      if (response.data?.expiresInSeconds) {
-        setRegisterOtpExpiresIn(response.data.expiresInSeconds);
-      }
-
-      if (response.data?.devOtp) {
-        showCustomAlert(
-          'Development OTP',
-          `Your OTP is ${response.data.devOtp}`,
-          'info'
-        );
-      } else {
-        showCustomAlert(
-          'OTP Sent',
-          response.message || 'OTP sent successfully.',
-          'success'
-        );
-      }
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Unable to send OTP. Please try again.');
+      setRegisterOtpExpiresIn(60);
+      showCustomAlert('OTP Sent', 'OTP sent successfully via Firebase.', 'success');
+      
+    } catch (error: any) {
+      setAuthError(error.message || 'Unable to send OTP via Firebase.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ==========================================
+  // REGISTER: Verify OTP via Firebase
+  // ==========================================
   const handleVerifyRegisterOtp = async () => {
-    const cleanPhone = regPhone.trim();
-    const cleanOtp = registerOtp.trim();
-
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    if (!/^\d{6}$/.test(cleanOtp)) {
-      setAuthError('Please enter the 6-digit OTP.');
-      return;
-    }
-
     try {
       setRegisterOtpLoading(true);
       setAuthError('');
 
-      const response = await verifyRegisterOtp(cleanPhone, cleanOtp);
+      // 1. FIREBASE SE OTP VERIFY KARO
+      await confirm.confirm(registerOtp);
+      const firebaseToken = await auth().currentUser?.getIdToken();
 
-      const { accessToken, refreshToken, user } = response.data;
+      if (firebaseToken) {
+        // 2. BACKEND KO TOKEN BHEJO
+        const response = await verifyFirebaseRegister(firebaseToken, {
+          name: regName.trim(),
+          email: email.trim().toLowerCase(),
+          password: password,
+        });
 
-      await saveTokens(accessToken, refreshToken);
+        const { accessToken, refreshToken, user } = response.data;
+        await saveTokens(accessToken, refreshToken);
 
-      setUserName(user.name ? user.name.split(' ')[0] : 'User');
-      setRegisterOtp('');
-      setRegisterOtpSent(false);
-      setRegisterOtpExpiresIn(null);
-      setAuthSuccess(true);
+        setUserName(user.name ? user.name.split(' ')[0] : 'User');
+        setRegisterOtp(''); setRegisterOtpSent(false); setRegisterOtpExpiresIn(null);
+        setAuthSuccess(true);
 
-      setTimeout(() => {
-        setIsLoggedIn(true);
-        setAuthSuccess(false);
-        setShowAuthModal(false);
-      }, 1500);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Invalid or expired OTP.';
-      setAuthError(msg);
-      showCustomAlert('Registration Failed', msg, 'error');
+        setTimeout(() => {
+          setIsLoggedIn(true); setAuthSuccess(false); setShowAuthModal(false);
+        }, 1500);
+      }
+    } catch (error: any) {
+      setAuthError('Invalid OTP. Please try again.');
+      showCustomAlert('Registration Failed', 'Invalid OTP entered.', 'error');
     } finally {
       setRegisterOtpLoading(false);
     }
   };
 
+  // ==========================================
+  // LOGIN: Send OTP via Firebase
+  // ==========================================
   const handleSendOtp = async () => {
     const cleanPhone = phone.trim();
-
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
       showCustomAlert('Invalid mobile number', 'Please enter a valid 10-digit mobile number.', 'error');
       return;
@@ -581,69 +556,51 @@ export default function App() {
       setOtpLoading(true);
       setAuthError('');
 
-      const response = await requestLoginOtp(cleanPhone);
+      // FIREBASE SE OTP BHEJO
+      const confirmation = await auth().signInWithPhoneNumber(`+91${cleanPhone}`);
+      setConfirm(confirmation);
 
       setOtp('');
       setOtpSent(true);
-
-      if (response.data?.expiresInSeconds) {
-        setOtpExpiresIn(response.data.expiresInSeconds);
-      } else {
-        setOtpExpiresIn(300);
-      }
-
-      if (response.data?.devOtp) {
-        showCustomAlert('Development OTP', `Your OTP is ${response.data.devOtp}`, 'info');
-      } else {
-        showCustomAlert('OTP Sent', response.message || 'OTP sent successfully.', 'success');
-      }
+      setOtpExpiresIn(60);
+      showCustomAlert('OTP Sent', 'OTP sent via Firebase successfully.', 'success');
     } catch (error: any) {
-      const message = error?.message || 'Unable to send OTP. Please try again.';
-      setAuthError(message);
-      showCustomAlert('Unable to send OTP', message, 'error');
+      setAuthError(error.message || 'Unable to send OTP.');
     } finally {
       setOtpLoading(false);
     }
   };
 
+  // ==========================================
+  // LOGIN: Verify OTP via Firebase
+  // ==========================================
   const handleVerifyOtp = async () => {
-    const cleanPhone = phone.trim();
-    const cleanOtp = otp.trim();
-
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      showCustomAlert('Invalid mobile number', 'Please enter a valid 10-digit mobile number.', 'error');
-      return;
-    }
-
-    if (!/^\d{6}$/.test(cleanOtp)) {
-      showCustomAlert('Invalid OTP', 'Please enter the 6-digit OTP.', 'error');
-      return;
-    }
-
     try {
       setOtpLoading(true);
       setAuthError('');
 
-      const response = await verifyLoginOtp(cleanPhone, cleanOtp);
-      const { accessToken, refreshToken, user } = response.data;
+      // 1. FIREBASE SE OTP VERIFY KARO
+      await confirm.confirm(otp);
+      const firebaseToken = await auth().currentUser?.getIdToken();
 
-      await saveTokens(accessToken, refreshToken);
+      if (firebaseToken) {
+        // 2. BACKEND KO TOKEN BHEJO
+        const response = await verifyFirebaseLogin(firebaseToken);
+        const { accessToken, refreshToken, user } = response.data;
 
-      setUserName(user.name ? user.name.split(' ')[0] : 'User');
-      setOtp('');
-      setOtpSent(false);
-      setOtpExpiresIn(null);
-      setAuthSuccess(true);
+        await saveTokens(accessToken, refreshToken);
+        setUserName(user.name ? user.name.split(' ')[0] : 'User');
+        
+        setOtp(''); setOtpSent(false); setOtpExpiresIn(null);
+        setAuthSuccess(true);
 
-      setTimeout(() => {
-        setIsLoggedIn(true);
-        setAuthSuccess(false);
-        setShowAuthModal(false);
-      }, 1500);
+        setTimeout(() => {
+          setIsLoggedIn(true); setAuthSuccess(false); setShowAuthModal(false);
+        }, 1500);
+      }
     } catch (error: any) {
-      const message = error?.message || 'Invalid or expired OTP.';
-      setAuthError(message);
-      showCustomAlert('OTP Verification Failed', message, 'error');
+      setAuthError('Invalid OTP or Verification Failed.');
+      showCustomAlert('Verification Failed', 'Invalid OTP entered.', 'error');
     } finally {
       setOtpLoading(false);
     }
@@ -1382,7 +1339,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
         uri: sanitizedUri,
         headers: { 'ngrok-skip-browser-warning': 'true' }
       }}
-      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
+      style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
       onError={() => setHasError(true)}
     />
   );

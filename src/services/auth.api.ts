@@ -582,3 +582,24 @@ export async function verifyLoginOtp(
     },
   );
 }
+
+// =====================================================
+// FIREBASE AUTH VERIFICATION
+// =====================================================
+
+export async function verifyFirebaseLogin(firebaseToken: string): Promise<any> {
+  return apiRequest('/auth/firebase-login', {
+    method: 'POST',
+    body: { firebaseToken },
+  });
+}
+
+export async function verifyFirebaseRegister(
+  firebaseToken: string,
+  payload: { name: string; email: string; phone?: string; password?: string }
+): Promise<any> {
+  return apiRequest('/auth/firebase-register', {
+    method: 'POST',
+    body: { firebaseToken, ...payload },
+  });
+}

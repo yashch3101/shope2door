@@ -89,7 +89,7 @@ function formatDate(
   });
 }
 
-const IMAGE_BASE_URL = 'http://40.40.1.142:3000/api/v1';
+const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
 function getOrderImageUrl(imagePath?: string): string | null {
   if (!imagePath) return null;

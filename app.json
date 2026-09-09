@@ -27,7 +27,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.premiumstore"
+      "package": "com.digrows.premiumstore"
     },
     "web": {
       "output": "static",
@@ -65,6 +65,8 @@
           "speechRecognitionPermission": "Allow Shope2Door to convert your voice into product search text."
         }
       ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
       "expo-build-properties"
     ],
     "experiments": {

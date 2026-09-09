@@ -37,7 +37,7 @@ import type {
 
 const { width, height } = Dimensions.get('window');
 
-const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
 
 export default function ProductDetailsScreen() {

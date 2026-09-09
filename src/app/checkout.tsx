@@ -185,7 +185,7 @@ export default function CheckoutScreen() {
   const [deliverySlabs, setDeliverySlabs] = useState<any[]>([]);
   const [storeLocation, setStoreLocation] = useState<{lat: number, lon: number} | null>(null);
 
-  const IMAGE_BASE_URL = 'http://40.40.1.142:3000/api/v1';
+  const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
   const openCouponModal = async () => {
     try {

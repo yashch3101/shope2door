@@ -457,7 +457,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
         uri: sanitizedUri,
         headers: { 'ngrok-skip-browser-warning': 'true' }
       }}
-      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
+      style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
       onError={() => setHasError(true)}
     />
   );

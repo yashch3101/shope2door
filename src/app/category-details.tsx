@@ -81,7 +81,7 @@ export default function CategoryDetailsScreen() {
     setAlertConfig({ visible: true, title, message, type });
   };
 
-  const API_BASE_URL = 'http://40.40.1.142:3000/api/v1';
+  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
   const params = useLocalSearchParams();
 
@@ -1100,7 +1100,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
         uri: sanitizedUri,
         headers: { 'ngrok-skip-browser-warning': 'true' }
       }}
-      style={{ width: '70%', height: '70%', resizeMode: 'contain' }}
+      style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
       onError={() => {
         console.log("Failed to load icon:", sanitizedUri);
         setHasError(true);
