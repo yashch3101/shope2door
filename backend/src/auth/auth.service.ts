@@ -43,68 +43,41 @@ export class AuthService {
   }
 
   // =====================================================
-  // GETOTP OFFICIAL API INTEGRATION (X-OTP-Key)
+  // 2FACTOR API INTEGRATION
   // =====================================================
 
   private async sendGetOTP(phone: string): Promise<void> {
-    const apiKey = process.env.GETOTP_API_KEY?.trim();
-    const senderId = process.env.GETOTP_SENDER_ID?.trim();
-    const templateId = process.env.GETOTP_TEMPLATE_ID?.trim();
-
-    if (!apiKey) throw new ServiceUnavailableException('GetOTP API key is missing in .env');
+    const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
+    if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
 
     try {
-      await axios.post(
-        'https://api.otp.dev/v1/verifications',
-        { 
-          // YAHAN THI GALTI! Payload ko 'data' object ke andar daalna tha
-          data: {
-            channel: 'sms', 
-            sender: senderId,
-            phone: `91${phone}`, 
-            template: templateId,
-            code_length: 4
-          }
-        },
-        { 
-          headers: { 
-            'X-OTP-Key': apiKey,
-            'accept': 'application/json',
-            'content-type': 'application/json'
-          } 
-        }
+      // 2Factor AUTOGEN API (Khud 6-digit OTP banayega)
+      await axios.get(
+        `https://2factor.in/API/V1/${apiKey}/SMS/91${phone}/AUTOGEN`
       );
     } catch (error: any) {
-      console.error('GetOTP Send Error:', error.response?.data || error.message);
-      throw new ServiceUnavailableException('Unable to send OTP via GetOTP.');
+      console.error('2Factor Send Error:', error.response?.data || error.message);
+      throw new ServiceUnavailableException('Unable to send OTP via 2Factor.');
     }
   }
 
   private async verifyGetOTP(phone: string, otp: string): Promise<boolean> {
-    const apiKey = process.env.GETOTP_API_KEY?.trim();
-    if (!apiKey) throw new ServiceUnavailableException('GetOTP API key is missing in .env');
+    const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
+    if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
 
     try {
-      // GetOTP ka official verify endpoint GET request maangta hai
+      // 2Factor VERIFY3 API
       const response = await axios.get(
-        `https://api.otp.dev/v1/verifications?code=${otp}&phone=91${phone}`,
-        { 
-          headers: { 
-            'X-OTP-Key': apiKey,
-            'accept': 'application/json'
-          } 
-        }
+        `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY3/91${phone}/${otp}`
       );
       
-      // Agar 'data' array ke andar details hain, matlab OTP valid hai
-      if (response.data && response.data.data && response.data.data.length > 0) {
+      // Agar status 'Success' hai, toh OTP valid hai
+      if (response.data && response.data.Status === 'Success') {
         return true;
       }
-      
-      // Agar array khali hai, toh OTP galat ya expire ho chuka hai
       return false; 
     } catch (error: any) {
-      console.error('GetOTP Verify Error:', error.response?.data || error.message);
+      console.error('2Factor Verify Error:', error.response?.data || error.message);
       return false;
     }
   }
