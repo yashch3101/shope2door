@@ -153,8 +153,8 @@ model Category {
 
   sortOrder Int @default(0)
 
-  parentId String?
-  parent Category? @relation("SubCategories", fields: [parentId], references: [id])
+  parentId      String?
+  parent        Category?  @relation("SubCategories", fields: [parentId], references: [id])
   subCategories Category[] @relation("SubCategories")
 
   createdAt DateTime @default(now())
@@ -233,7 +233,7 @@ model Product {
 
   isFeatured Boolean @default(false)
 
-  isEssential  Boolean   @default(false)
+  isEssential Boolean @default(false)
 
   // ===================================================
   // CATEGORY
@@ -849,8 +849,8 @@ model DeliverySettings {
 
   deliveryTime String?
 
-  storeLatitude      Decimal? @db.Decimal(10, 7)
-  storeLongitude     Decimal? @db.Decimal(10, 7)
+  storeLatitude  Decimal? @db.Decimal(10, 7)
+  storeLongitude Decimal? @db.Decimal(10, 7)
 
   createdAt DateTime @default(now())
 
@@ -974,11 +974,25 @@ model WebhookEvent {
 // =====================================================
 
 model DeliverySlab {
-  id          String   @id @default(cuid())
-  minDistance Decimal  @db.Decimal(10, 2)
-  maxDistance Decimal  @db.Decimal(10, 2)
-  charge      Decimal  @db.Decimal(10, 2)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String  @id @default(cuid())
+  minDistance Decimal @db.Decimal(10, 2)
+  maxDistance Decimal @db.Decimal(10, 2)
+  charge      Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =====================================================
+// PHONE VERIFICATION (For Apitxt OTP)
+// =====================================================
+
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }

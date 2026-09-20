@@ -25,12 +25,10 @@ import {
 
 import { MotiView } from 'moti';
 
-function isValidIconUrl(icon?: string | null): boolean {
-  if (!icon) {
-    return false;
-  }
+const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
 
-  return /^https?:\/\/.+/i.test(icon.trim());
+function isValidIconUrl(icon?: string | null): boolean {
+  return !!icon && icon.trim().length > 0;
 }
 
 import { useRouter } from 'expo-router';
@@ -335,24 +333,26 @@ export default function CategoriesScreen() {
                 >
                   <TouchableOpacity
                     activeOpacity={0.7}
-                    style={
-                      styles.categoryCard
-                    }
+                    style={styles.categoryCard}
                     onPress={() =>
                       handleCategoryPress(
                         category,
                       )
                     }
                   >
-                    {isValidIconUrl(category.icon) ? (
-                      <NgrokSvg
-                        uri={category.icon!.trim()}
-                        width={40}
-                        height={40}
-                      />
-                    ) : (
-                      <Ionicons name="grid-outline" size={40} color="#EAB308" />
-                    )}
+                    {(() => {
+                      const iconSrc = category.icon || category.image;
+                      if (isValidIconUrl(iconSrc)) {
+                        return (
+                          <NgrokSvg 
+                            uri={iconSrc!.startsWith('http') ? iconSrc!.trim() : `${API_BASE_URL}/uploads/${iconSrc!.replace(/^\//, '').trim()}`.replace(/\s+/g, '%20')} 
+                            width={40} 
+                            height={40} 
+                          />
+                        );
+                      }
+                      return <Ionicons name="grid-outline" size={40} color="#EAB308" />;
+                    })()}
                   </TouchableOpacity>
 
                   <Text
@@ -443,7 +443,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
   const [hasError, setHasError] = React.useState(false);
   let sanitizedUri = uri ? uri.trim().replace(/\s+/g, '%20') : '';
 
-  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+  if (!sanitizedUri || hasError) {
     return (
       <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 16 }}>
         <Ionicons name="grid-outline" size={width * 0.5} color="#CA8A04" />

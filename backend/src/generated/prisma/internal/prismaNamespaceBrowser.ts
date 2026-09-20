@@ -17,8 +17,8 @@
 
 import * as runtime from "@prisma/client/runtime/index-browser"
 
-export type * from '../models.js'
-export type * from './prismaNamespace.js'
+export type * from '../models'
+export type * from './prismaNamespace'
 
 export const Decimal = runtime.Decimal
 
@@ -75,7 +75,8 @@ export const ModelName = {
   HelpSettings: 'HelpSettings',
   OfflineMap: 'OfflineMap',
   WebhookEvent: 'WebhookEvent',
-  DeliverySlab: 'DeliverySlab'
+  DeliverySlab: 'DeliverySlab',
+  PhoneVerification: 'PhoneVerification'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -494,6 +495,17 @@ export const DeliverySlabScalarFieldEnum = {
 } as const
 
 export type DeliverySlabScalarFieldEnum = (typeof DeliverySlabScalarFieldEnum)[keyof typeof DeliverySlabScalarFieldEnum]
+
+
+export const PhoneVerificationScalarFieldEnum = {
+  id: 'id',
+  phone: 'phone',
+  otp: 'otp',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type PhoneVerificationScalarFieldEnum = (typeof PhoneVerificationScalarFieldEnum)[keyof typeof PhoneVerificationScalarFieldEnum]
 
 
 export const SortOrder = {

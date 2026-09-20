@@ -42,44 +42,103 @@ export class AuthService {
     }
   }
 
+  // // =====================================================
+  // // 2FACTOR API INTEGRATION
+  // // =====================================================
+
+  // private async sendGetOTP(phone: string): Promise<void> {
+  //   const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
+  //   if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
+
+  //   try {
+  //     // 2Factor AUTOGEN API (Khud 6-digit OTP banayega)
+  //     await axios.get(
+  //       `https://2factor.in/API/V1/${apiKey}/SMS/91${phone}/AUTOGEN`
+  //     );
+  //   } catch (error: any) {
+  //     console.error('2Factor Send Error:', error.response?.data || error.message);
+  //     throw new ServiceUnavailableException('Unable to send OTP via 2Factor.');
+  //   }
+  // }
+
+  // private async verifyGetOTP(phone: string, otp: string): Promise<boolean> {
+  //   const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
+  //   if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
+
+  //   try {
+  //     // 2Factor VERIFY3 API
+  //     const response = await axios.get(
+  //       `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY3/91${phone}/${otp}`
+  //     );
+      
+  //     // Agar status 'Success' hai, toh OTP valid hai
+  //     if (response.data && response.data.Status === 'Success') {
+  //       return true;
+  //     }
+  //     return false; 
+  //   } catch (error: any) {
+  //     console.error('2Factor Verify Error:', error.response?.data || error.message);
+  //     return false;
+  //   }
+  // }
+
   // =====================================================
-  // 2FACTOR API INTEGRATION
+  // APITXT API INTEGRATION (UPDATED)
   // =====================================================
 
-  private async sendGetOTP(phone: string): Promise<void> {
-    const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
-    if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
+  // Ye function ab request handler se call hoga jahan bhi OTP bhejna hai
+  public async sendGetOTP(phone: string): Promise<void> {
+    // 1. 6-digit random OTP generate karo
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // 2. OTP ki validity set karo (e.g., 5 minutes)
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); 
+
+    // 3. Prisma mein OTP save ya update karo
+    await this.prisma.phoneVerification.upsert({
+      where: { phone: phone },
+      update: { otp: generatedOtp, expiresAt: expiresAt },
+      create: { phone: phone, otp: generatedOtp, expiresAt: expiresAt },
+    });
+
+    // 4. Apitxt API call karo SMS bhejne ke liye
+    const apiKey = process.env.APITXT_AUTH_KEY?.trim();
+    if (!apiKey) throw new ServiceUnavailableException('Apitxt API key is missing in .env');
 
     try {
-      // 2Factor AUTOGEN API (Khud 6-digit OTP banayega)
-      await axios.get(
-        `https://2factor.in/API/V1/${apiKey}/SMS/91${phone}/AUTOGEN`
-      );
+      const url = `https://apitxt.com/api/sendOTP?authkey=${apiKey}&mobile=91${phone}&otp=${generatedOtp}`;
+      await axios.get(url);
     } catch (error: any) {
-      console.error('2Factor Send Error:', error.response?.data || error.message);
-      throw new ServiceUnavailableException('Unable to send OTP via 2Factor.');
+      console.error('Apitxt Send Error:', error.response?.data || error.message);
+      throw new ServiceUnavailableException('Unable to send OTP via Apitxt.');
     }
   }
 
-  private async verifyGetOTP(phone: string, otp: string): Promise<boolean> {
-    const apiKey = process.env.TWOFACTOR_API_KEY?.trim();
-    if (!apiKey) throw new ServiceUnavailableException('2Factor API key is missing in .env');
+  public async verifyGetOTP(phone: string, inputOtp: string): Promise<boolean> {
+    // 1. Database se saved OTP nikalo
+    const record = await this.prisma.phoneVerification.findUnique({
+      where: { phone: phone }
+    });
 
-    try {
-      // 2Factor VERIFY3 API
-      const response = await axios.get(
-        `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY3/91${phone}/${otp}`
-      );
-      
-      // Agar status 'Success' hai, toh OTP valid hai
-      if (response.data && response.data.Status === 'Success') {
-        return true;
-      }
-      return false; 
-    } catch (error: any) {
-      console.error('2Factor Verify Error:', error.response?.data || error.message);
-      return false;
+    // 2. Validations check karo
+    if (!record) {
+      throw new BadRequestException('OTP request not found for this number.');
     }
+    
+    if (record.expiresAt < new Date()) {
+      // Expire hone par record delete kar do
+      await this.prisma.phoneVerification.delete({ where: { phone: phone } });
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+
+    if (record.otp !== inputOtp) {
+      return false; // OTP galat hai
+    }
+
+    // 3. Verification successful hone par DB se OTP delete kar do (Security best practice)
+    await this.prisma.phoneVerification.delete({ where: { phone: phone } });
+
+    return true; 
   }
 
   // =====================================================

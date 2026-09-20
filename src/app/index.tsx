@@ -95,10 +95,7 @@ type ProductItem = {
 };
 
 function isValidIconUrl(icon?: string | null): boolean {
-  if (!icon) {
-    return false;
-  }
-  return /^https?:\/\/.+/i.test(icon.trim());
+  return !!icon && icon.trim().length > 0;
 }
 
 const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
@@ -130,7 +127,7 @@ const mapProductToCard = (
         image: product.images && product.images.length > 0 
           ? (product.images[0].startsWith('http') 
               ? product.images[0] 
-              : `${API_BASE_URL}/${product.images[0]}`) 
+              : `${API_BASE_URL}/uploads/${product.images[0].replace(/^\//, '')}`.replace(/\s+/g, '%20'))
           : undefined,
   };
 };
@@ -1041,6 +1038,7 @@ const searchResults = normalizedSearch.length === 0
             <View style={styles.categoryGrid}>
               {categories.map((cat, index) => (
                 <MotiView key={cat.id} from={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', delay: baseDelay + 300 + (index * 50) }} style={styles.categoryItem}>
+
                   <TouchableOpacity 
                     activeOpacity={0.7} 
                     style={styles.categoryIconCircle} 
@@ -1053,8 +1051,12 @@ const searchResults = normalizedSearch.length === 0
                       })
                     }
                   >
-                    {isValidIconUrl(cat.icon) ? (
-                      <NgrokSvg uri={cat.icon!.trim()} width={40} height={40} />
+                    {isValidIconUrl(cat.icon || cat.image) ? (
+                      <NgrokSvg 
+                        uri={(cat.icon || cat.image)!.startsWith('http') ? (cat.icon || cat.image)!.trim() : `${API_BASE_URL}/uploads/${(cat.icon || cat.image)!.replace(/^\//, '').trim()}`}
+                        width={40} 
+                        height={40} 
+                      />
                     ) : (
                       <Ionicons name="grid-outline" size={40} color="#EAB308" />
                     )}
@@ -1308,7 +1310,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
   const [hasError, setHasError] = useState(false);
   let sanitizedUri = uri ? uri.trim().replace(/\s+/g, '%20') : '';
 
-  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+  if (!sanitizedUri || hasError) {
     return (
       <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 32 }}>
         <Ionicons name="grid-outline" size={width * 0.5} color="#CA8A04" />

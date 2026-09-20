@@ -458,7 +458,7 @@ export default function ProductDetailsScreen() {
               {item ? (
                 <Image
                   source={{ 
-                    uri: item ? (item.startsWith('http') ? item : `${API_BASE_URL}/${item}`) : '',
+                    uri: item ? (item.startsWith('http') ? item.replace(/\s+/g, '%20') : `${API_BASE_URL}/uploads/${item.replace(/^\//, '')}`.replace(/\s+/g, '%20')) : '',
                     headers: { 'ngrok-skip-browser-warning': 'true' }
                   }}
                   style={styles.productImage}
@@ -643,7 +643,7 @@ export default function ProductDetailsScreen() {
                     {item.images?.[0] ? (
                       <Image
                         source={{ 
-                          uri: item.images[0].startsWith('http') ? item.images[0] : `${API_BASE_URL}/${item.images[0]}`,
+                          uri: item.images[0].startsWith('http') ? item.images[0].replace(/\s+/g, '%20') : `${API_BASE_URL}/uploads/${item.images[0].replace(/^\//, '')}`.replace(/\s+/g, '%20'),
                           headers: { 'ngrok-skip-browser-warning': 'true' }
                         }}
                         style={styles.similarProductImage}

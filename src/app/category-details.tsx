@@ -58,11 +58,7 @@ import {
 } from '../services/product.api';
 
 function isValidIconUrl(icon?: string | null): boolean {
-  if (!icon) {
-    return false;
-  }
-
-  return /^https?:\/\/.+/i.test(icon.trim());
+  return !!icon && icon.trim().length > 0;
 }
 
 export default function CategoryDetailsScreen() {
@@ -669,11 +665,7 @@ export default function CategoryDetailsScreen() {
                       <View style={styles.iconCircle}>
                         {isValidIconUrl(item.icon) ? (
                           <NgrokSvg
-                            uri={
-                              item.icon?.startsWith('http')
-                                ? item.icon.trim()
-                                : `${API_BASE_URL}/${item.icon!.trim()}`
-                            }
+                            uri={(item.icon || item.image)!.startsWith('http') ? (item.icon || item.image)!.trim() : `${API_BASE_URL}/uploads/${(item.icon || item.image)!.replace(/^\//, '').trim()}`.replace(/\s+/g, '%20')}
                             width={32}
                             height={32}
                           />
@@ -1086,7 +1078,7 @@ const NgrokSvg = ({ uri, width, height }: { uri: string, width: number, height: 
     sanitizedUri = sanitizedUri.replace('.svg', '.png') + '?width=120';
   }
 
-  if (!sanitizedUri || !sanitizedUri.startsWith('http') || hasError) {
+  if (!sanitizedUri || hasError) {
     return (
       <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FEF9C3', borderRadius: 25 }}>
         <Ionicons name="fast-food-outline" size={width * 0.55} color="#CA8A04" />

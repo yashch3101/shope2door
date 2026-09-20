@@ -16,10 +16,10 @@
  */
 
 import * as runtime from "@prisma/client/runtime/client"
-import type * as Prisma from "../models.js"
-import { type PrismaClient } from "./class.js"
+import type * as Prisma from "../models"
+import { type PrismaClient } from "./class"
 
-export type * from '../models.js'
+export type * from '../models'
 
 export type DMMF = typeof runtime.DMMF
 
@@ -421,7 +421,8 @@ export const ModelName = {
   HelpSettings: 'HelpSettings',
   OfflineMap: 'OfflineMap',
   WebhookEvent: 'WebhookEvent',
-  DeliverySlab: 'DeliverySlab'
+  DeliverySlab: 'DeliverySlab',
+  PhoneVerification: 'PhoneVerification'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -437,7 +438,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "legacyOtpChallenge" | "category" | "product" | "productVariant" | "productImage" | "productInfo" | "productHighlight" | "banner" | "address" | "cart" | "cartItem" | "wishlistItem" | "order" | "orderItem" | "coupon" | "payment" | "storeSettings" | "deliverySettings" | "district" | "city" | "helpSettings" | "offlineMap" | "webhookEvent" | "deliverySlab"
+    modelProps: "user" | "legacyOtpChallenge" | "category" | "product" | "productVariant" | "productImage" | "productInfo" | "productHighlight" | "banner" | "address" | "cart" | "cartItem" | "wishlistItem" | "order" | "orderItem" | "coupon" | "payment" | "storeSettings" | "deliverySettings" | "district" | "city" | "helpSettings" | "offlineMap" | "webhookEvent" | "deliverySlab" | "phoneVerification"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2291,6 +2292,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PhoneVerification: {
+      payload: Prisma.$PhoneVerificationPayload<ExtArgs>
+      fields: Prisma.PhoneVerificationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PhoneVerificationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PhoneVerificationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        findFirst: {
+          args: Prisma.PhoneVerificationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PhoneVerificationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        findMany: {
+          args: Prisma.PhoneVerificationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>[]
+        }
+        create: {
+          args: Prisma.PhoneVerificationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        createMany: {
+          args: Prisma.PhoneVerificationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PhoneVerificationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>[]
+        }
+        delete: {
+          args: Prisma.PhoneVerificationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        update: {
+          args: Prisma.PhoneVerificationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        deleteMany: {
+          args: Prisma.PhoneVerificationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PhoneVerificationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PhoneVerificationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>[]
+        }
+        upsert: {
+          args: Prisma.PhoneVerificationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PhoneVerificationPayload>
+        }
+        aggregate: {
+          args: Prisma.PhoneVerificationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePhoneVerification>
+        }
+        groupBy: {
+          args: Prisma.PhoneVerificationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PhoneVerificationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PhoneVerificationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PhoneVerificationCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2732,6 +2807,17 @@ export const DeliverySlabScalarFieldEnum = {
 export type DeliverySlabScalarFieldEnum = (typeof DeliverySlabScalarFieldEnum)[keyof typeof DeliverySlabScalarFieldEnum]
 
 
+export const PhoneVerificationScalarFieldEnum = {
+  id: 'id',
+  phone: 'phone',
+  otp: 'otp',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type PhoneVerificationScalarFieldEnum = (typeof PhoneVerificationScalarFieldEnum)[keyof typeof PhoneVerificationScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -3098,6 +3184,7 @@ export type GlobalOmitConfig = {
   offlineMap?: Prisma.OfflineMapOmit
   webhookEvent?: Prisma.WebhookEventOmit
   deliverySlab?: Prisma.DeliverySlabOmit
+  phoneVerification?: Prisma.PhoneVerificationOmit
 }
 
 /* Types for Logging */
