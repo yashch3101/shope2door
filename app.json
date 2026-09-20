@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "premium-store",
+    "name": "Shope2Door",
     "slug": "premium-store",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,8 +16,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -27,7 +27,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.digrows.premiumstore"
+      "package": "com.digrows.Shope2Door"
     },
     "web": {
       "output": "static",
