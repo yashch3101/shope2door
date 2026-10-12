@@ -127,12 +127,11 @@ import { UploadsController } from './uploads.controller';
     SettingsModule,
 
     LocationModule,
-
-    UploadsController,
   ],
 
   controllers: [
     AppController,
+    UploadsController,
   ],
 
   providers: [
