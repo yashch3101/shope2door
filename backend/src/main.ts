@@ -24,7 +24,7 @@ async function bootstrap() {
   // SERVE STATIC FILES (IMAGES)
   // process.cwd() exact root directory uthayega
   // =====================================================
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  app.use('/api/v1/uploads', express.static('/root/shope2door/backend/uploads'));
 
   // =====================================================
   // SECURITY HEADERS
