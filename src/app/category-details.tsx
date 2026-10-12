@@ -331,7 +331,6 @@ export default function CategoryDetailsScreen() {
           firstCategory.slug,
         );
 
-        // NAYA LOGIC: Check for sub-categories
         if ((firstCategory as any).subCategories && (firstCategory as any).subCategories.length > 0) {
           const firstSub = (firstCategory as any).subCategories[0];
           setActiveSubCategorySlug(firstSub.slug);
@@ -369,14 +368,12 @@ export default function CategoryDetailsScreen() {
     item: Category,
   ) => {
     try {
-      setProducts([]); // Purane products hatao loading ke liye
+      setProducts([]);
       
-      // Agar currently sub-categories dikh rahi hain
       if ((activeCategory as any)?.subCategories && (activeCategory as any).subCategories.length > 0) {
         setActiveSubCategorySlug(item.slug);
         await loadProductsForCategory(item.id);
       } else {
-        // Agar main categories dikh rahi hain (fallback)
         setActiveCategorySlug(item.slug);
         setActiveCategory(item);
         

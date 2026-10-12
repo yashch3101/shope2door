@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -67,7 +68,7 @@ import {
   getProducts,
 } from '../services/product.api';
 
-import { addToCart } from '../services/cart.api';
+import { addToCart, getCart } from '../services/cart.api';
 
 import type {
   Product,
@@ -304,6 +305,12 @@ export default function App() {
   const [authSuccess, setAuthSuccess] = useState(false);
 
   // =====================================================
+    // CART & SETTINGS STATE FOR FREE DELIVERY BANNER
+    // =====================================================
+    const [cartSubtotal, setCartSubtotal] = useState(0);
+    const [totalItems, setTotalItems] = useState(0);
+
+  // =====================================================
   // CUSTOM ALERT STATE
   // =====================================================
   const [alertConfig, setAlertConfig] = useState({
@@ -320,6 +327,90 @@ export default function App() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoading, setBannersLoading] = useState(true);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  // =====================================================
+  // FETCH CART DATA (EXACT MATCHED WITH CATEGORY DETAILS)
+  // =====================================================
+  const loadCart = useCallback(async () => {
+    try {
+      const settingsRes = await getAppSettings();
+      if (settingsRes.success && settingsRes.data) {
+        setAppSettings(settingsRes.data);
+      }
+
+      const token = await getAccessToken();
+      if (!token) {
+        setTotalItems(0);
+        setCartSubtotal(0);
+        return;
+      }
+
+      const response = await getCart();
+      if (response.success && response.data) {
+        // Safe check for summary object
+        const summary = response.data.summary || response.data;
+        setCartSubtotal(Number((summary as any).subtotal || (summary as any).totalAmount || 0));
+        setTotalItems(Number((summary as any).totalItems || (summary as any).itemsCount || 0));
+      }
+    } catch (error) {
+      console.log('Failed to load cart for banner:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCart();
+  }, [isLoggedIn]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadCart(),
+        // Banners fetcher
+        (async () => {
+          try {
+            const res = await getBanners();
+            if (res.success && res.data) {
+              setBanners(Array.isArray(res.data) ? res.data : []);
+            }
+          } catch (e) { console.log('Banner refresh error', e); }
+        })(),
+        // Categories fetcher
+        (async () => {
+          try {
+            const res = await getCategories();
+            if (res.success && res.data) {
+              setCategories(res.data);
+            }
+          } catch (e) { console.log('Category refresh error', e); }
+        })(),
+        // Products fetcher
+        (async () => {
+          try {
+            const res = await getProducts({ page: 1, limit: 50 });
+            if (res.success && res.data) {
+              setProducts(res.data.products);
+            }
+          } catch (e) { console.log('Product refresh error', e); }
+        })(),
+        // Settings fetcher
+        (async () => {
+          try {
+            const res = await getAppSettings();
+            if (res.success && res.data) {
+              setAppSettings(res.data);
+            }
+          } catch (e) { console.log('Settings refresh error', e); }
+        })()
+      ]);
+    } catch (error) {
+      console.log('Full refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadCart]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -442,7 +533,11 @@ export default function App() {
 
     try {
       setCartLoading(prev => ({ ...prev, [productId]: true }));
+
       await addToCart(productId, 1);
+
+      await loadCart();
+
       showCustomAlert(
         'Added to Cart',
         'Product has been added to your cart.',
@@ -973,7 +1068,19 @@ const searchResults = normalizedSearch.length === 0
           )}
         </View>
       ) : (
-        <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: height * 0.15 }}>
+        <ScrollView 
+          style={styles.contentContainer} 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ paddingBottom: height * 0.20 }}
+            refreshControl={
+              <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh} 
+                colors={['#EAB308']} 
+                tintColor="#EAB308"  
+              />
+            }
+          >
           {/* STORE CLOSED BANNER */}
           {appSettings?.store?.isClosed && (
             <MotiView from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ backgroundColor: '#FEE2E2', marginHorizontal: width * 0.04, marginTop: 16, padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' }}>
@@ -1066,6 +1173,89 @@ const searchResults = normalizedSearch.length === 0
               ))}
             </View>
           </View>
+
+          {/* ================================================= */}
+          {/* QUICK FILTER BOXES (FOOD & GROCERIES WITH HEADING) */}
+          {/* ================================================= */}
+          <MotiView 
+            from={{ opacity: 0, translateY: 30 }} 
+            animate={{ opacity: 1, translateY: 0 }} 
+            transition={{ type: 'spring', delay: baseDelay + 350, damping: 15 }}
+            style={{ marginTop: 20 }}
+          >
+            {/* SECTION HEADING */}
+            <Text style={styles.sectionTitle}>Shop By Category</Text>
+
+            <View style={styles.quickFilterContainer}>
+              {/* 1. FOOD & SNACKS CARD */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.quickFilterCard, { backgroundColor: '#FFF7ED', borderColor: '#FFEDD5' }]}
+                onPress={() => {
+                  const foodCat = categories.find(c => 
+                    c.slug?.toLowerCase().includes('food') || 
+                    c.name?.toLowerCase().includes('food') ||
+                    c.slug?.toLowerCase().includes('snacks')
+                  );
+
+                  router.push({
+                    pathname: '/category-details',
+                    params: {
+                      slug: foodCat ? foodCat.slug : (categories[0]?.slug || 'food'),
+                    },
+                  });
+                }}
+              >
+                <MotiView 
+                  from={{ scale: 0.9 }} 
+                  animate={{ scale: 1 }} 
+                  transition={{ type: 'timing', duration: 1200, loop: true }}
+                  style={[styles.quickFilterIconBadge, { backgroundColor: '#F97316' }]}
+                >
+                  <Ionicons name="fast-food" size={24} color="#FFFFFF" />
+                </MotiView>
+                <View style={styles.quickFilterTextContainer}>
+                  <Text style={styles.quickFilterTitle}>Food & Snacks</Text>
+                  <Text style={styles.quickFilterSubtitle}>Instant Cravings</Text>
+                </View>
+                <Ionicons name="chevron-forward-circle" size={20} color="#F97316" />
+              </TouchableOpacity>
+
+              {/* 2. GROCERIES CARD */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.quickFilterCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}
+                onPress={() => {
+                  const groceryCat = categories.find(c => 
+                    c.slug?.toLowerCase().includes('grocer') || 
+                    c.name?.toLowerCase().includes('grocer') ||
+                    c.slug?.toLowerCase().includes('essentials')
+                  );
+
+                  router.push({
+                    pathname: '/category-details',
+                    params: {
+                      slug: groceryCat ? groceryCat.slug : (categories[1]?.slug || 'groceries'),
+                    },
+                  });
+                }}
+              >
+                <MotiView 
+                  from={{ scale: 0.9 }} 
+                  animate={{ scale: 1 }} 
+                  transition={{ type: 'timing', duration: 1200, loop: true }}
+                  style={[styles.quickFilterIconBadge, { backgroundColor: '#10B981' }]}
+                >
+                  <Ionicons name="basket" size={24} color="#FFFFFF" />
+                </MotiView>
+                <View style={styles.quickFilterTextContainer}>
+                  <Text style={styles.quickFilterTitle}>Groceries</Text>
+                  <Text style={styles.quickFilterSubtitle}>Daily Essentials</Text>
+                </View>
+                <Ionicons name="chevron-forward-circle" size={20} color="#10B981" />
+              </TouchableOpacity>
+            </View>
+          </MotiView>
 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Everyday Essentials</Text>
@@ -1302,6 +1492,69 @@ const searchResults = normalizedSearch.length === 0
           </MotiView>
         )}
       </AnimatePresence>
+
+      {/* =================================================
+          BOTTOM FLOATING FREE DELIVERY BANNER (HOME SCREEN)
+      ================================================= */}
+      {totalItems > 0 && (
+        <MotiView
+          from={{ translateY: 100, opacity: 0 }}
+          animate={{ translateY: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 15 }}
+          style={[
+            styles.floatingBannerContainer, 
+            { 
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: Math.max((insets?.bottom || 0) + 65, 75), // Bottom navigation bar ke upar float karega
+              zIndex: 9999,
+              elevation: 10
+            }
+          ]}
+        >
+          {(() => {
+            const threshold = Number((appSettings?.delivery as any)?.freeDeliveryAbove || (appSettings?.store as any)?.freeDeliveryThreshold) || 500;
+            const amountNeeded = Math.max(0, threshold - cartSubtotal);
+            const progress = Math.min((cartSubtotal / threshold) * 100, 100);
+
+            return (
+              <View style={styles.floatingBannerInner}>
+                <View style={styles.freeDeliveryContent}>
+                  <View style={{ marginBottom: 6 }}>
+                    {amountNeeded > 0 ? (
+                      <Text style={styles.freeDeliveryText}>
+                        Add <Text style={{fontWeight: '900'}}>₹{amountNeeded.toFixed(0)}</Text> more to unlock <Text style={{fontWeight: '900'}}>Free Delivery</Text>
+                      </Text>
+                    ) : (
+                      <Text style={styles.freeDeliverySuccessText}>
+                        🎉 Free Delivery Unlocked!
+                      </Text>
+                    )}
+                  </View>
+                  
+                  {/* Progress Bar */}
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${progress}%` }, amountNeeded === 0 && { backgroundColor: '#10B981' }]} />
+                  </View>
+                </View>
+
+                {/* View Cart Button */}
+                <TouchableOpacity 
+                  style={styles.viewCartBtn} 
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/cart')}
+                >
+                  <Text style={styles.viewCartBtnText}>Cart</Text>
+                  <View style={styles.cartCountBadge}>
+                    <Text style={styles.cartCountText}>{totalItems}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
+        </MotiView>
+      )}
     </View>
   );
 }
@@ -1537,4 +1790,136 @@ const styles = StyleSheet.create({
   customAlertMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   customAlertButton: { width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   customAlertButtonText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+
+  floatingBannerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    zIndex: 99,
+  },
+  
+  floatingBannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F2937', 
+    padding: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  freeDeliveryContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  freeDeliveryText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  freeDeliverySuccessText: {
+    color: '#34D399',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  progressBarBg: {
+    height: 4,
+    backgroundColor: '#374151',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#EAB308',
+    borderRadius: 2,
+  },
+
+  viewCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAB308',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+
+  viewCartBtnText: {
+    color: '#1F2937',
+    fontWeight: '800',
+    fontSize: 14,
+    marginRight: 6,
+  },
+
+  cartCountBadge: {
+    backgroundColor: '#FFF',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cartCountText: {
+    color: '#1F2937',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  // =====================================================
+  // QUICK FILTER CARDS STYLES
+  // =====================================================
+  quickFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: width * 0.04,
+    marginTop: 8,
+    marginBottom: 16,
+    gap: 12,
+  },
+  quickFilterCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickFilterIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  quickFilterTextContainer: {
+    flex: 1,
+  },
+  quickFilterTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  quickFilterSubtitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 1,
+  },
 });

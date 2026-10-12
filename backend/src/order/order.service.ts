@@ -725,7 +725,11 @@ export class OrderService {
         id: orderId,
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
         address: true,
         payments: true,
         coupon: true,
@@ -994,7 +998,6 @@ export class OrderService {
           where: {
             id: orderId,
           },
-
           include: {
             items: true,
           },
@@ -1011,59 +1014,91 @@ export class OrderService {
           dto.status,
         );
 
+        // ============================================
+        // ADMIN RE-ACTIVATION (CANCELLED -> ACTIVE) -> DEDUCT STOCK
+        // ============================================
+        // NOTE: Order update hone se pehle check karte hain taaki stock na hone par error throw kar sakein
+        if (
+          order.status === OrderStatus.CANCELLED &&
+          dto.status !== OrderStatus.CANCELLED
+        ) {
+          for (const item of order.items) {
+            const product = await tx.product.findUnique({
+              where: { id: item.productId },
+            });
+
+            if (!product || product.stock < item.quantity) {
+              throw new BadRequestException(
+                `Insufficient stock for product ID ${item.productId} to re-activate this order.`,
+              );
+            }
+
+            await tx.product.update({
+              where: {
+                id: item.productId,
+              },
+              data: {
+                stock: {
+                  decrement: item.quantity,
+                },
+              },
+            });
+          }
+
+          // Restore coupon usage count
+          if (order.couponId) {
+            await tx.coupon.update({
+              where: {
+                id: order.couponId,
+              },
+              data: {
+                usedCount: {
+                  increment: 1,
+                },
+              },
+            });
+          }
+        }
+
         const data: Prisma.OrderUpdateInput = {
           status: dto.status,
         };
 
-        if (
-          dto.status ===
-          OrderStatus.CONFIRMED
-        ) {
+        if (dto.status === OrderStatus.CONFIRMED) {
           data.confirmedAt = new Date();
         }
 
-        if (
-          dto.status ===
-          OrderStatus.DELIVERED
-        ) {
+        if (dto.status === OrderStatus.DELIVERED) {
           data.deliveredAt = new Date();
         }
 
-        if (
-          dto.status ===
-          OrderStatus.CANCELLED
-        ) {
+        if (dto.status === OrderStatus.CANCELLED) {
           data.cancelledAt = new Date();
         }
 
-        const updatedOrder =
-          await tx.order.update({
-            where: {
-              id: orderId,
-            },
-
-            data,
-
-            include: {
-              items: true,
-              address: true,
-            },
-          });
+        const updatedOrder = await tx.order.update({
+          where: {
+            id: orderId,
+          },
+          data,
+          include: {
+            items: true,
+            address: true,
+          },
+        });
 
         // ============================================
         // ADMIN CANCELLATION → RESTORE STOCK
         // ============================================
-
         if (
-          dto.status ===
-          OrderStatus.CANCELLED
+          order.status !== OrderStatus.CANCELLED && 
+          dto.status === OrderStatus.CANCELLED
         ) {
           for (const item of order.items) {
             await tx.product.update({
               where: {
                 id: item.productId,
               },
-
               data: {
                 stock: {
                   increment: item.quantity,
@@ -1075,17 +1110,14 @@ export class OrderService {
           // ==========================================
           // RESTORE COUPON USAGE
           // ==========================================
-
           if (order.couponId) {
             await tx.coupon.updateMany({
               where: {
                 id: order.couponId,
-
                 usedCount: {
                   gt: 0,
                 },
               },
-
               data: {
                 usedCount: {
                   decrement: 1,
@@ -1097,18 +1129,13 @@ export class OrderService {
 
         return {
           success: true,
-
           message: 'Order status updated successfully',
-
           order: updatedOrder,
         };
       },
-
       {
         maxWait: 5000,
-
         timeout: 15000,
-
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       },
     );
@@ -1169,7 +1196,9 @@ export class OrderService {
         OrderStatus.RETURN_REQUESTED,
       ],
 
-      [OrderStatus.CANCELLED]: [],
+      [OrderStatus.CANCELLED]: [
+        OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.PACKED, OrderStatus.DISPATCHED, OrderStatus.OUT_FOR_DELIVERY
+      ],
 
       [OrderStatus.RETURN_REQUESTED]: [
         OrderStatus.RETURNED,
