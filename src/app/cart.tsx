@@ -65,7 +65,7 @@ export default function CartScreen() {
   };
 
   // VPS ka live ngrok domain (api/v1 ke bina)
-  const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  const IMAGE_BASE_URL = 'https://shope2door-api.duckdns.org/api/v1';
 
   const getCartImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;

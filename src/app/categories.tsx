@@ -25,7 +25,7 @@ import {
 
 import { MotiView } from 'moti';
 
-const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const API_BASE_URL = 'https://shope2door-api.duckdns.org/api/v1';
 
 function isValidIconUrl(icon?: string | null): boolean {
   return !!icon && icon.trim().length > 0;

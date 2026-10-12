@@ -185,7 +185,7 @@ export default function CheckoutScreen() {
   const [deliverySlabs, setDeliverySlabs] = useState<any[]>([]);
   const [storeLocation, setStoreLocation] = useState<{lat: number, lon: number} | null>(null);
 
-  const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  const IMAGE_BASE_URL = 'https://shope2door-api.duckdns.org/api/v1';
 
   const openCouponModal = async () => {
     try {

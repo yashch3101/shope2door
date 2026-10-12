@@ -77,7 +77,7 @@ export default function CategoryDetailsScreen() {
     setAlertConfig({ visible: true, title, message, type });
   };
 
-  const API_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+  const API_BASE_URL = 'https://shope2door-api.duckdns.org/api/v1';
 
   const params = useLocalSearchParams();
 
@@ -822,7 +822,8 @@ export default function CategoryDetailsScreen() {
                         {item.images && item.images.length > 0 ? (
                           <Image
                             source={{ 
-                              uri: item.images[0].startsWith('http') 
+                              uri: 
+                                item.images[0].startsWith('http') 
                                 ? item.images[0] 
                                 : `${API_BASE_URL}/${item.images[0]}`,
                               headers: { 'ngrok-skip-browser-warning': 'true' }

@@ -89,7 +89,7 @@ function formatDate(
   });
 }
 
-const IMAGE_BASE_URL = 'https://drop-down-underwire-impulse.ngrok-free.dev/api/v1';
+const IMAGE_BASE_URL = 'https://shope2door-api.duckdns.org/api/v1';
 
 function getOrderImageUrl(imagePath?: string): string | null {
   if (!imagePath) return null;
