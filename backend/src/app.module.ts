@@ -32,10 +32,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { OrderScheduler } from './order/order.scheduler';
 
 import { LocationModule } from './location/location.module';
+import { UploadsController } from './uploads.controller';
 
 @Module({
   imports: [
-
     ScheduleModule.forRoot(),
     // ===================================================
     // ENVIRONMENT CONFIGURATION
@@ -127,6 +127,8 @@ import { LocationModule } from './location/location.module';
     SettingsModule,
 
     LocationModule,
+
+    UploadsController,
   ],
 
   controllers: [
