@@ -822,10 +822,9 @@ export default function CategoryDetailsScreen() {
                         {item.images && item.images.length > 0 ? (
                           <Image
                             source={{ 
-                              uri: 
-                                item.images[0].startsWith('http') 
+                              uri: item.images[0].startsWith('http') 
                                 ? item.images[0] 
-                                : `${API_BASE_URL}/${item.images[0]}`,
+                                : `https://shope2door-api.duckdns.org/api/v1/uploads/${item.images[0].replace(/^\//, '').trim()}`,
                               headers: { 'ngrok-skip-browser-warning': 'true' }
                             }}
                             style={{ width: '100%', height: '100%', borderRadius: 12 }}
