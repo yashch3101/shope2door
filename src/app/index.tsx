@@ -693,9 +693,17 @@ export default function App() {
           setIsLoggedIn(true);
           setUserName(response.data.name ? response.data.name.split(' ')[0] : 'User');
         }
-      } catch {
-        await clearTokens();
-        setIsLoggedIn(false);
+      } catch (error: any) {
+        if (error.response && error.response.status === 401) {
+          await clearTokens();
+          setIsLoggedIn(false);
+        } else {
+          const tokenExists = await getAccessToken();
+          if (tokenExists) {
+            setIsLoggedIn(true);
+            setUserName('User');
+          }
+        }
       }
     };
     restoreSession();
